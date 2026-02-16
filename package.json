@@ -1,7 +1,7 @@
 {
   "name": "@pgplex/pgconsole",
   "description": "Postgres Editor with Guardrails",
-  "version": "1.0.6",
+  "version": "1.1.0",
   "type": "module",
   "bin": {
     "pgconsole": "dist/server.mjs"
