@@ -33,6 +33,8 @@ const PAYMENT_LINKS = {
   annual: 'https://buy.stripe.com/28E28qfoZ69zcsr2nX1Fe03',
 }
 
+const CUSTOMER_PORTAL_LINK = 'https://billing.stripe.com/p/login/8x23cu1y969z643e6F1Fe00'
+
 function formatDate(timestamp: number): string {
   return new Date(timestamp * 1000).toLocaleDateString(undefined, {
     year: 'numeric',
@@ -116,7 +118,7 @@ export function SubscriptionModalProvider({ children }: { children: React.ReactN
                 </span>
               </div>
 
-              {isOwner && (
+              {isOwner && plan === 'FREE' && (
                 <div className="pt-4 border-t">
                   <p className="text-sm font-medium text-gray-700 mb-3">Select billing cycle:</p>
                   <div className="grid grid-cols-2 gap-3">
@@ -157,8 +159,14 @@ export function SubscriptionModalProvider({ children }: { children: React.ReactN
               Close
             </Button>
             {isOwner && (
-              <Button onClick={() => window.open(PAYMENT_LINKS[billingCycle], '_blank')}>
-                Upgrade
+              <Button onClick={() => {
+                let url = plan === 'FREE' ? PAYMENT_LINKS[billingCycle] : CUSTOMER_PORTAL_LINK
+                if (plan !== 'FREE' && licenseEmail) {
+                  url += `?prefilled_email=${encodeURIComponent(licenseEmail)}`
+                }
+                window.open(url, '_blank')
+              }}>
+                {plan === 'FREE' ? 'Upgrade' : 'Manage'}
               </Button>
             )}
           </DialogFooter>
