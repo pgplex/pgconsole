@@ -1,0 +1,5 @@
+SELECT
+  id,
+  amount
+FROM
+  orders TABLESAMPLE SYSTEM (5) REPEATABLE (123);

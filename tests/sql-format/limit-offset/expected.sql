@@ -1,0 +1,8 @@
+SELECT
+  *
+FROM
+  users
+LIMIT
+  10
+OFFSET
+  20;

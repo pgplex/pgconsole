@@ -1,0 +1,50 @@
+[
+  {
+    "kind": "select",
+    "distinct": false,
+    "distinctOn": null,
+    "columns": [
+      {
+        "expr": {
+          "kind": "column",
+          "table": null,
+          "column": "id"
+        },
+        "alias": null
+      },
+      {
+        "expr": {
+          "kind": "column",
+          "table": null,
+          "column": "name"
+        },
+        "alias": null
+      },
+      {
+        "expr": {
+          "kind": "column",
+          "table": null,
+          "column": "email"
+        },
+        "alias": null
+      }
+    ],
+    "from": {
+      "kind": "table",
+      "schema": null,
+      "table": "users",
+      "alias": null,
+      "tablesample": null
+    },
+    "where": null,
+    "groupBy": null,
+    "having": null,
+    "orderBy": null,
+    "limit": null,
+    "offset": null,
+    "windowClause": null,
+    "withClause": null,
+    "setOp": null,
+    "lockingClause": null
+  }
+]

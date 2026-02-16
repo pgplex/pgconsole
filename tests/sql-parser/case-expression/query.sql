@@ -1,0 +1,1 @@
+SELECT CASE WHEN age < 18 THEN 'minor' ELSE 'adult' END AS age_group FROM users

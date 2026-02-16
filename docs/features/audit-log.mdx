@@ -1,0 +1,135 @@
+---
+title: Audit Log
+---
+
+<Info>This feature requires the **Enterprise** plan.</Info>
+
+pgconsole emits audit logs as JSON lines to stdout, allowing you to capture and process them with your existing log infrastructure.
+
+## Events
+
+| Event | Description |
+|-------|-------------|
+| `auth.login` | User login attempt (success or failure) |
+| `auth.logout` | User logout |
+| `sql.execute` | SQL query execution |
+| `data.export` | Data exported (e.g., CSV download) |
+
+## Log Format
+
+All audit events are JSON objects with a common structure:
+
+```json
+{
+  "type": "audit",
+  "ts": "2024-01-15T10:30:45.123Z",
+  "action": "...",
+  "actor": "alice@example.com"
+}
+```
+
+### Common Fields
+
+| Field | Description |
+|-------|-------------|
+| `type` | Always `"audit"` |
+| `ts` | ISO 8601 timestamp |
+| `action` | Event type |
+| `actor` | Username or email |
+
+### auth.login
+
+```json
+{
+  "type": "audit",
+  "ts": "2024-01-15T10:30:45.123Z",
+  "action": "auth.login",
+  "actor": "alice@example.com",
+  "provider": "google",
+  "ip": "192.168.1.100",
+  "success": true
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `provider` | Auth provider (`basic`, `google`, `keycloak`) |
+| `ip` | Client IP address |
+| `success` | Whether login succeeded |
+| `error` | Error message (if failed) |
+
+### auth.logout
+
+```json
+{
+  "type": "audit",
+  "ts": "2024-01-15T10:35:00.000Z",
+  "action": "auth.logout",
+  "actor": "alice@example.com"
+}
+```
+
+### sql.execute
+
+```json
+{
+  "type": "audit",
+  "ts": "2024-01-15T10:32:15.456Z",
+  "action": "sql.execute",
+  "actor": "alice@example.com",
+  "connection": "prod-db",
+  "database": "postgres",
+  "sql": "SELECT * FROM users WHERE active = true",
+  "success": true,
+  "duration_ms": 45,
+  "row_count": 150
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `connection` | Connection ID |
+| `database` | Database name |
+| `sql` | Full SQL query text |
+| `success` | Whether query succeeded |
+| `duration_ms` | Execution time in milliseconds |
+| `row_count` | Number of rows returned (optional) |
+| `error` | Error message (if failed) |
+
+### data.export
+
+```json
+{
+  "type": "audit",
+  "ts": "2024-01-15T10:33:00.000Z",
+  "action": "data.export",
+  "actor": "alice@example.com",
+  "connection": "prod-db",
+  "database": "postgres",
+  "sql": "SELECT * FROM users WHERE active = true",
+  "row_count": 150,
+  "format": "csv"
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `connection` | Connection ID |
+| `database` | Database name |
+| `sql` | SQL query that produced the exported data |
+| `row_count` | Number of rows exported |
+| `format` | Export format (`csv`) |
+
+## Capturing Logs
+
+Audit logs are written to stdout alongside other server output. Filter by `"type":"audit"` to capture audit events only:
+
+```bash
+# Filter and write to file
+# --line-buffered: flush output after each line for real-time logging
+pgconsole | grep --line-buffered '"type":"audit"' >> audit.log
+
+# Parse and forward to log aggregator
+# --unbuffered: disable jq's output buffering for real-time streaming
+pgconsole | jq --unbuffered -c 'select(.type == "audit")' | nc logserver 5000
+```

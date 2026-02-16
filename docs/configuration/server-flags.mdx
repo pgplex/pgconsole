@@ -1,0 +1,40 @@
+---
+title: Server Flags
+---
+
+## Available Flags
+
+| Setting | Flag | Environment Variable | Default |
+|---------|------|---------------------|---------|
+| Port | `--port` | `PORT` | `9876` |
+| Config file | `--config` | — | Demo mode |
+
+Command line flags take precedence over environment variables.
+
+## Examples
+
+### npx
+
+```bash
+npx @pgplex/pgconsole --port 3000 --config /path/to/pgconsole.toml
+```
+
+### Docker
+
+```bash
+# Demo mode (no config needed)
+docker run -p 9876:9876 pgplex/pgconsole
+
+# With config file
+docker run -p 9876:9876 -v /path/to/pgconsole.toml:/etc/pgconsole.toml pgplex/pgconsole
+
+# Custom port
+docker run -p 3000:3000 -e PORT=3000 -v /path/to/pgconsole.toml:/etc/pgconsole.toml pgplex/pgconsole
+
+# Pass config via environment variable (useful for PaaS like Railway where we can't mount file)
+docker run -p 9876:9876 -e PGCONSOLE_CONFIG="$(cat /path/to/pgconsole.toml)" pgplex/pgconsole
+```
+
+<Info>
+`PGCONSOLE_CONFIG` is only available for Docker deployments. When set, its content is written to the config file at startup. This is useful for PaaS platforms where you cannot mount files and can only set environment variables.
+</Info>

@@ -1,0 +1,84 @@
+[
+  {
+    "kind": "select",
+    "distinct": false,
+    "distinctOn": null,
+    "columns": [
+      {
+        "expr": {
+          "kind": "column",
+          "table": null,
+          "column": "*"
+        },
+        "alias": null
+      }
+    ],
+    "from": {
+      "kind": "table",
+      "schema": null,
+      "table": "active_users",
+      "alias": null,
+      "tablesample": null
+    },
+    "where": null,
+    "groupBy": null,
+    "having": null,
+    "orderBy": null,
+    "limit": null,
+    "offset": null,
+    "windowClause": null,
+    "withClause": [
+      {
+        "name": "active_users",
+        "query": {
+          "kind": "select",
+          "distinct": false,
+          "distinctOn": null,
+          "columns": [
+            {
+              "expr": {
+                "kind": "column",
+                "table": null,
+                "column": "*"
+              },
+              "alias": null
+            }
+          ],
+          "from": {
+            "kind": "table",
+            "schema": null,
+            "table": "users",
+            "alias": null,
+            "tablesample": null
+          },
+          "where": {
+            "kind": "binary",
+            "op": "=",
+            "left": {
+              "kind": "column",
+              "table": null,
+              "column": "active"
+            },
+            "right": {
+              "kind": "literal",
+              "type": "boolean",
+              "value": true
+            }
+          },
+          "groupBy": null,
+          "having": null,
+          "orderBy": null,
+          "limit": null,
+          "offset": null,
+          "windowClause": null,
+          "withClause": null,
+          "setOp": null,
+          "lockingClause": null
+        },
+        "recursive": false
+      }
+    ],
+    "setOp": null,
+    "lockingClause": null
+  }
+]

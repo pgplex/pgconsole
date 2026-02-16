@@ -1,0 +1,85 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "fonts": {
+    "family": "DM Sans"
+  },
+  "name": "pgconsole",
+  "colors": {
+    "primary": "#0A64C8",
+    "light": "#5A94D8",
+    "dark": "#063D78"
+  },
+  "favicon": "/favicon.svg",
+  "navigation": {
+    "groups": [
+      {
+        "group": "Getting Started",
+        "pages": [
+          "getting-started/introduction",
+          "getting-started/quickstart",
+          "getting-started/faq"
+        ]
+      },
+      {
+        "group": "Features",
+        "pages": [
+          "features/sql-editor",
+          "features/database-access-control",
+          "features/ai-assistant",
+          "features/audit-log",
+          "features/white-labeling"
+        ]
+      },
+      {
+        "group": "Authentication",
+        "pages": [
+          "authentication/overview",
+          {
+            "group": "SSO",
+            "expanded": true,
+            "pages": [
+              "authentication/google",
+              "authentication/okta",
+              "authentication/keycloak"
+            ]
+          }
+        ]
+      },
+      {
+        "group": "Configuration",
+        "pages": [
+          "configuration/server-flags",
+          "configuration/external-access",
+          "configuration/license",
+          "configuration/config"
+        ]
+      }
+    ]
+  },
+  "logo": {
+    "light": "/logo/light-full.svg",
+    "dark": "/logo/dark-full.svg"
+  },
+  "contextual": {
+    "options": ["copy", "view", "chatgpt", "claude", "perplexity"]
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "Pricing",
+        "href": "https://www.pgconsole.com/pricing"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "Live Demo",
+      "href": "https://demo.pgconsole.com"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/pgplex/pgconsole"
+    }
+  }
+}

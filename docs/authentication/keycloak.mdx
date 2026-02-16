@@ -1,0 +1,82 @@
+---
+title: Keycloak
+---
+
+<Info>This feature requires the **Enterprise** plan.</Info>
+
+Allow users to sign in with Keycloak, an open source identity and access management solution.
+
+## Prerequisites
+
+- A running Keycloak instance
+- Admin access to create clients
+- [external_url](/configuration/config#general)
+
+## Setup
+
+### 1. Create a Client in Keycloak
+
+1. Open your Keycloak admin console
+2. Select the realm you want to use (or create a new one)
+3. Go to **Clients** > **Create client**
+4. Configure the client:
+   - **Client type**: `openid-connect`
+   - **Client ID**: `pgconsole` (or your preferred name)
+5. Click **Next**
+6. Enable **Client authentication**
+7. Click **Next**
+8. Add valid redirect URI:
+   ```
+   <<external_url>>/api/auth/keycloak/callback
+   ```
+9. Click **Save**
+10. Go to the **Client scopes** tab and verify `email` and `profile` are listed under **Assigned default client scopes** (Keycloak assigns these by default for OpenID Connect clients)
+
+### 2. Get Client Credentials
+
+1. Go to the **Credentials** tab
+2. Copy the **Client Secret**
+
+### 3. Get Issuer URL
+
+The issuer URL follows this pattern:
+```
+https://keycloak.example.com/realms/your-realm
+```
+
+### 4. Configure pgconsole
+
+Add the Keycloak provider to your `pgconsole.toml`:
+
+```toml pgconsole.toml
+[general]
+external_url = "https://pgconsole.example.com"
+
+[auth]
+# openssl rand -hex 32
+jwt_secret = "your-secret-key-at-least-32-characters-long"
+signin_expiry = "7d"
+
+[[auth.providers]]
+type = "keycloak"
+client_id = "pgconsole"
+client_secret = "your-keycloak-client-secret"
+issuer_url = "https://keycloak.example.com/realms/your-realm"
+
+# Keycloak email is used as the user identifier in groups and IAM rules
+[[groups]]
+id = "dev-team"
+name = "Development Team"
+members = ["alice@example.com", "bob@example.com"]
+
+[[iam]]
+connection = "production"
+permissions = ["read"]
+members = ["user:carol@example.com", "group:dev-team"]
+```
+
+See [OAuth Providers](/configuration/config#oauth-providers) in the configuration reference for all provider fields.
+
+### 5. Restart pgconsole
+
+Restart the application for changes to take effect. A "Sign in with Keycloak" button will appear on the login page.

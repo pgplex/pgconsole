@@ -1,0 +1,14 @@
+{
+  "name": "stripe-webhook-worker",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "stripe": "^17"
+  },
+  "devDependencies": {
+    "wrangler": "^3"
+  }
+}

@@ -1,0 +1,16 @@
+[
+  {
+    "kind": "drop",
+    "objectType": "function",
+    "objects": [
+      {
+        "schema": "my_schema",
+        "name": "calculate_total",
+        "args": "int4, numeric"
+      }
+    ],
+    "ifExists": true,
+    "cascade": false,
+    "source": "DROP FUNCTION IF EXISTS my_schema.calculate_total(integer, numeric)"
+  }
+]

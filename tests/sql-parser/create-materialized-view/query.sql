@@ -1,0 +1,1 @@
+CREATE MATERIALIZED VIEW IF NOT EXISTS sales_summary AS SELECT product_id, SUM(quantity) as total FROM sales GROUP BY product_id

@@ -1,0 +1,75 @@
+[
+  {
+    "kind": "select",
+    "distinct": false,
+    "distinctOn": null,
+    "columns": [
+      {
+        "expr": {
+          "kind": "column",
+          "table": null,
+          "column": "*"
+        },
+        "alias": null
+      }
+    ],
+    "from": {
+      "kind": "table",
+      "schema": null,
+      "table": "users",
+      "alias": null,
+      "tablesample": null
+    },
+    "where": {
+      "kind": "binary",
+      "op": "IN",
+      "left": {
+        "kind": "column",
+        "table": null,
+        "column": "id"
+      },
+      "right": {
+        "kind": "unknown",
+        "raw": {
+          "List": {
+            "items": [
+              {
+                "A_Const": {
+                  "ival": {
+                    "ival": 1
+                  },
+                  "location": 33
+                }
+              },
+              {
+                "A_Const": {
+                  "ival": {
+                    "ival": 2
+                  },
+                  "location": 36
+                }
+              },
+              {
+                "A_Const": {
+                  "ival": {
+                    "ival": 3
+                  },
+                  "location": 39
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "groupBy": null,
+    "having": null,
+    "orderBy": null,
+    "limit": null,
+    "offset": null,
+    "windowClause": null,
+    "withClause": null,
+    "setOp": null,
+    "lockingClause": null
+  }
+]

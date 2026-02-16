@@ -1,0 +1,52 @@
+[
+  {
+    "kind": "select",
+    "distinct": false,
+    "distinctOn": null,
+    "columns": [
+      {
+        "expr": {
+          "kind": "column",
+          "table": null,
+          "column": "*"
+        },
+        "alias": null
+      }
+    ],
+    "from": {
+      "kind": "table",
+      "schema": null,
+      "table": "users",
+      "alias": null,
+      "tablesample": null
+    },
+    "where": null,
+    "groupBy": null,
+    "having": null,
+    "orderBy": [
+      {
+        "expr": {
+          "kind": "column",
+          "table": null,
+          "column": "created_at"
+        },
+        "direction": "desc",
+        "nulls": null
+      }
+    ],
+    "limit": {
+      "kind": "literal",
+      "type": "number",
+      "value": 10
+    },
+    "offset": {
+      "kind": "literal",
+      "type": "number",
+      "value": 20
+    },
+    "windowClause": null,
+    "withClause": null,
+    "setOp": null,
+    "lockingClause": null
+  }
+]

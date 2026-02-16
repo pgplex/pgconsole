@@ -1,0 +1,83 @@
+[
+  {
+    "kind": "select",
+    "distinct": false,
+    "distinctOn": null,
+    "columns": [
+      {
+        "expr": {
+          "kind": "column",
+          "table": null,
+          "column": "*"
+        },
+        "alias": null
+      }
+    ],
+    "from": {
+      "kind": "table",
+      "schema": null,
+      "table": "users",
+      "alias": null,
+      "tablesample": null
+    },
+    "where": {
+      "kind": "sublink",
+      "type": "exists",
+      "subquery": {
+        "kind": "select",
+        "distinct": false,
+        "distinctOn": null,
+        "columns": [
+          {
+            "expr": {
+              "kind": "literal",
+              "type": "number",
+              "value": 1
+            },
+            "alias": null
+          }
+        ],
+        "from": {
+          "kind": "table",
+          "schema": null,
+          "table": "orders",
+          "alias": null,
+          "tablesample": null
+        },
+        "where": {
+          "kind": "binary",
+          "op": "=",
+          "left": {
+            "kind": "column",
+            "table": "orders",
+            "column": "user_id"
+          },
+          "right": {
+            "kind": "column",
+            "table": "users",
+            "column": "id"
+          }
+        },
+        "groupBy": null,
+        "having": null,
+        "orderBy": null,
+        "limit": null,
+        "offset": null,
+        "windowClause": null,
+        "withClause": null,
+        "setOp": null,
+        "lockingClause": null
+      },
+      "testExpr": null
+    },
+    "groupBy": null,
+    "having": null,
+    "orderBy": null,
+    "limit": null,
+    "offset": null,
+    "windowClause": null,
+    "withClause": null,
+    "setOp": null,
+    "lockingClause": null
+  }
+]

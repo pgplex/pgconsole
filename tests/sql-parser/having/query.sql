@@ -1,0 +1,1 @@
+SELECT country, COUNT(*) AS cnt FROM users GROUP BY country HAVING COUNT(*) > 10

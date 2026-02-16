@@ -1,0 +1,72 @@
+[
+  {
+    "kind": "create_view",
+    "view": {
+      "kind": "table",
+      "schema": null,
+      "table": "sales_summary",
+      "alias": null,
+      "tablesample": null
+    },
+    "query": {
+      "kind": "select",
+      "distinct": false,
+      "distinctOn": null,
+      "columns": [
+        {
+          "expr": {
+            "kind": "column",
+            "table": null,
+            "column": "product_id"
+          },
+          "alias": null
+        },
+        {
+          "expr": {
+            "kind": "func",
+            "name": "SUM",
+            "args": [
+              {
+                "kind": "column",
+                "table": null,
+                "column": "quantity"
+              }
+            ],
+            "distinct": false,
+            "star": false,
+            "filter": null,
+            "over": null
+          },
+          "alias": "total"
+        }
+      ],
+      "from": {
+        "kind": "table",
+        "schema": null,
+        "table": "sales",
+        "alias": null,
+        "tablesample": null
+      },
+      "where": null,
+      "groupBy": [
+        {
+          "kind": "column",
+          "table": null,
+          "column": "product_id"
+        }
+      ],
+      "having": null,
+      "orderBy": null,
+      "limit": null,
+      "offset": null,
+      "windowClause": null,
+      "withClause": null,
+      "setOp": null,
+      "lockingClause": null
+    },
+    "replace": false,
+    "materialized": true,
+    "ifNotExists": true,
+    "source": "CREATE MATERIALIZED VIEW IF NOT EXISTS sales_summary AS SELECT product_id, SUM(quantity) as total FROM sales GROUP BY product_id"
+  }
+]

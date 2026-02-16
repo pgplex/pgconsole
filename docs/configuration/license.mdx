@@ -1,0 +1,29 @@
+---
+title: Manage License
+---
+
+<Info>pgconsole does not connect to any external license server, so it cannot auto-refresh the license. After purchasing a new subscription or renewing an existing one, a new license key will be emailed to you. Update the key in your configuration file and restart pgconsole for it to take effect.</Info>
+
+## Purchasing a License
+
+Purchase directly from the application via the **Subscription** option in the owner's profile menu, or use the links below:
+
+- [Monthly plan — $20/user/month](https://buy.stripe.com/aFa00ifoZ8hHfEDgeN1Fe02)
+- [Annual plan — $16/user/month](https://buy.stripe.com/28E28qfoZ69zcsr2nX1Fe03)
+
+A license key will be emailed to you after purchase.
+
+## Adding a License
+
+Add your license key to the configuration file:
+
+```toml pgconsole.toml
+[general]
+license = "your-license-key"
+```
+
+Restart pgconsole for the license to take effect.
+
+## Billing
+
+For billing issues, contact [billing@pgconsole.com](mailto:billing@pgconsole.com).

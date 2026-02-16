@@ -1,0 +1,52 @@
+[
+  {
+    "kind": "select",
+    "distinct": false,
+    "distinctOn": null,
+    "columns": [
+      {
+        "expr": {
+          "kind": "column",
+          "table": null,
+          "column": "country"
+        },
+        "alias": null
+      },
+      {
+        "expr": {
+          "kind": "func",
+          "name": "COUNT",
+          "args": [],
+          "distinct": false,
+          "star": true,
+          "filter": null,
+          "over": null
+        },
+        "alias": null
+      }
+    ],
+    "from": {
+      "kind": "table",
+      "schema": null,
+      "table": "users",
+      "alias": null,
+      "tablesample": null
+    },
+    "where": null,
+    "groupBy": [
+      {
+        "kind": "column",
+        "table": null,
+        "column": "country"
+      }
+    ],
+    "having": null,
+    "orderBy": null,
+    "limit": null,
+    "offset": null,
+    "windowClause": null,
+    "withClause": null,
+    "setOp": null,
+    "lockingClause": null
+  }
+]

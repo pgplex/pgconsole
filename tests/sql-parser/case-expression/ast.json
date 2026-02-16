@@ -1,0 +1,61 @@
+[
+  {
+    "kind": "select",
+    "distinct": false,
+    "distinctOn": null,
+    "columns": [
+      {
+        "expr": {
+          "kind": "case",
+          "arg": null,
+          "whens": [
+            {
+              "when": {
+                "kind": "binary",
+                "op": "<",
+                "left": {
+                  "kind": "column",
+                  "table": null,
+                  "column": "age"
+                },
+                "right": {
+                  "kind": "literal",
+                  "type": "number",
+                  "value": 18
+                }
+              },
+              "then": {
+                "kind": "literal",
+                "type": "string",
+                "value": "minor"
+              }
+            }
+          ],
+          "else": {
+            "kind": "literal",
+            "type": "string",
+            "value": "adult"
+          }
+        },
+        "alias": "age_group"
+      }
+    ],
+    "from": {
+      "kind": "table",
+      "schema": null,
+      "table": "users",
+      "alias": null,
+      "tablesample": null
+    },
+    "where": null,
+    "groupBy": null,
+    "having": null,
+    "orderBy": null,
+    "limit": null,
+    "offset": null,
+    "windowClause": null,
+    "withClause": null,
+    "setOp": null,
+    "lockingClause": null
+  }
+]

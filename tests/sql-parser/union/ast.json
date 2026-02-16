@@ -1,0 +1,86 @@
+[
+  {
+    "kind": "select",
+    "distinct": false,
+    "distinctOn": null,
+    "columns": [],
+    "from": null,
+    "where": null,
+    "groupBy": null,
+    "having": null,
+    "orderBy": null,
+    "limit": null,
+    "offset": null,
+    "windowClause": null,
+    "withClause": null,
+    "setOp": {
+      "op": "union",
+      "all": false,
+      "left": {
+        "kind": "select",
+        "distinct": false,
+        "distinctOn": null,
+        "columns": [
+          {
+            "expr": {
+              "kind": "column",
+              "table": null,
+              "column": "id"
+            },
+            "alias": null
+          }
+        ],
+        "from": {
+          "kind": "table",
+          "schema": null,
+          "table": "users",
+          "alias": null,
+          "tablesample": null
+        },
+        "where": null,
+        "groupBy": null,
+        "having": null,
+        "orderBy": null,
+        "limit": null,
+        "offset": null,
+        "windowClause": null,
+        "withClause": null,
+        "setOp": null,
+        "lockingClause": null
+      },
+      "right": {
+        "kind": "select",
+        "distinct": false,
+        "distinctOn": null,
+        "columns": [
+          {
+            "expr": {
+              "kind": "column",
+              "table": null,
+              "column": "id"
+            },
+            "alias": null
+          }
+        ],
+        "from": {
+          "kind": "table",
+          "schema": null,
+          "table": "admins",
+          "alias": null,
+          "tablesample": null
+        },
+        "where": null,
+        "groupBy": null,
+        "having": null,
+        "orderBy": null,
+        "limit": null,
+        "offset": null,
+        "windowClause": null,
+        "withClause": null,
+        "setOp": null,
+        "lockingClause": null
+      }
+    },
+    "lockingClause": null
+  }
+]

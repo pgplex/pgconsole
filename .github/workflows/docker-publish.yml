@@ -1,0 +1,110 @@
+# Workflow to build and publish Docker images for pgconsole
+#
+# This workflow:
+# 1. Always pushes to the 'latest' tag when changes are pushed to the main branch
+# 2. If package.json version changes, also pushes a version-specific tag
+# 3. Builds for both amd64 and arm64 architectures
+
+name: Publish to Docker Hub
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "website/**"
+      - "worker/**"
+
+env:
+  IMAGE_NAME: pgplex/pgconsole
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2 # Fetch two commits to detect changes in package.json
+
+      - name: Check for package.json version changes
+        id: check-version
+        run: |
+          # Get current and previous package.json content
+          git show HEAD:package.json > package.json.current
+          git show HEAD~1:package.json > package.json.previous 2>/dev/null || cp package.json.current package.json.previous
+
+          # Extract versions
+          CURRENT_VERSION=$(jq -r '.version' package.json.current)
+          PREVIOUS_VERSION=$(jq -r '.version' package.json.previous)
+
+          echo "Current version: $CURRENT_VERSION"
+          echo "Previous version: $PREVIOUS_VERSION"
+
+          echo "VERSION=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+
+          # Set output based on whether version changed
+          if [ "$CURRENT_VERSION" != "$PREVIOUS_VERSION" ]; then
+            echo "Version changed from $PREVIOUS_VERSION to $CURRENT_VERSION"
+            echo "VERSION_CHANGED=true" >> $GITHUB_OUTPUT
+          else
+            echo "Version unchanged: $CURRENT_VERSION"
+            echo "VERSION_CHANGED=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Prepare Docker tags
+        id: prep
+        run: |
+          # Always include latest tag
+          TAGS="${{ env.IMAGE_NAME }}:latest"
+
+          # Add version tag if version changed
+          if [[ "${{ steps.check-version.outputs.VERSION_CHANGED }}" == "true" ]]; then
+            VERSION="${{ steps.check-version.outputs.VERSION }}"
+            TAGS="$TAGS,${{ env.IMAGE_NAME }}:$VERSION"
+            echo "Publishing with tags: latest, $VERSION"
+          else
+            echo "Publishing with tag: latest only"
+          fi
+
+          echo "TAGS=$TAGS" >> $GITHUB_OUTPUT
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.prep.outputs.TAGS }}
+          build-args: |
+            GIT_COMMIT=${{ github.sha }}
+            VERSION=${{ steps.check-version.outputs.VERSION }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

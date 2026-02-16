@@ -1,0 +1,1 @@
+SELECT country, COUNT(*) FROM users GROUP BY country

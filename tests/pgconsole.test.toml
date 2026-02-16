@@ -1,0 +1,24 @@
+# Test configuration for API tests
+# Run server with: pnpm start -- --config tests/pgconsole.test.toml
+
+[auth]
+jwt_secret = "test-secret-key-at-least-32-characters-long"
+
+[[users]]
+email = "test@example.com"
+password = "testpassword"
+
+[[connections]]
+id = "test-conn"
+name = "Test Connection"
+host = "localhost"
+port = 5432
+database = "postgres"
+username = "postgres"
+password = "postgres"
+lazy = true
+
+[[iam]]
+connection = "*"
+permissions = ["read", "write", "ddl", "admin"]
+members = ["user:test@example.com"]

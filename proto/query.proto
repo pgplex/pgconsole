@@ -1,0 +1,356 @@
+syntax = "proto3";
+
+package query.v1;
+
+service QueryService {
+  rpc ExecuteSQL(ExecuteSQLRequest) returns (stream ExecuteSQLResponse);
+  rpc CancelQuery(CancelQueryRequest) returns (CancelQueryResponse);
+  rpc GetSchemas(GetSchemasRequest) returns (GetSchemasResponse);
+  rpc GetTables(GetTablesRequest) returns (GetTablesResponse);
+  rpc GetColumns(GetColumnsRequest) returns (GetColumnsResponse);
+  rpc GetTableInfo(GetTableInfoRequest) returns (GetTableInfoResponse);
+  rpc GetIndexes(GetIndexesRequest) returns (GetIndexesResponse);
+  rpc GetConstraints(GetConstraintsRequest) returns (GetConstraintsResponse);
+  rpc GetTriggers(GetTriggersRequest) returns (GetTriggersResponse);
+  rpc GetPolicies(GetPoliciesRequest) returns (GetPoliciesResponse);
+  rpc GetGrants(GetGrantsRequest) returns (GetGrantsResponse);
+  rpc GetMaterializedViews(GetMaterializedViewsRequest) returns (GetMaterializedViewsResponse);
+  rpc GetFunctions(GetFunctionsRequest) returns (GetFunctionsResponse);
+  rpc GetProcedures(GetProceduresRequest) returns (GetProceduresResponse);
+  rpc GetFunctionInfo(GetFunctionInfoRequest) returns (GetFunctionInfoResponse);
+  rpc GetFunctionDependencies(GetFunctionDependenciesRequest) returns (GetFunctionDependenciesResponse);
+  rpc GetActiveSessions(GetActiveSessionsRequest) returns (GetActiveSessionsResponse);
+  rpc TerminateSession(TerminateSessionRequest) returns (TerminateSessionResponse);
+  rpc AuditExport(AuditExportRequest) returns (AuditExportResponse);
+}
+
+message ExecuteSQLRequest {
+  string connection_id = 1;
+  string sql = 2;
+  string query_id = 3; // Unique ID to track and cancel this query
+  string search_path = 4; // PostgreSQL search_path (e.g., "myschema, public")
+}
+
+message ExecuteSQLResponse {
+  repeated ColumnMetadata columns = 1;  // Column metadata including name, type, table info
+  repeated Row rows = 2;
+  int32 row_count = 3;
+  int32 execution_time_ms = 4;
+  string error = 5;
+  int32 backend_pid = 6; // PostgreSQL backend process ID for monitoring correlation
+}
+
+message Row {
+  repeated string values = 1;
+}
+
+message ColumnMetadata {
+  string name = 1;
+  string type = 2;           // PostgreSQL type name
+  string table_name = 3;     // Source table (empty for computed columns)
+  string schema_name = 4;    // Schema name (default "public")
+  bool is_primary_key = 5;   // Whether column is part of PK
+  bool is_nullable = 6;      // Whether column allows NULL values
+  bool has_default = 7;      // Whether column has a default value
+}
+
+message CancelQueryRequest {
+  string connection_id = 1;
+  string query_id = 2;
+}
+
+message CancelQueryResponse {
+  bool cancelled = 1;
+  string error = 2;
+}
+
+message GetSchemasRequest {
+  string connection_id = 1;
+}
+
+message GetSchemasResponse {
+  repeated string schemas = 1;
+}
+
+message GetTablesRequest {
+  string connection_id = 1;
+  string schema = 2;
+}
+
+message GetTablesResponse {
+  repeated TableInfo tables = 1;
+}
+
+message TableInfo {
+  string name = 1;
+  string type = 2; // 'table' or 'view'
+}
+
+message GetColumnsRequest {
+  string connection_id = 1;
+  string schema = 2;
+  string table = 3;
+}
+
+message GetColumnsResponse {
+  repeated ColumnInfo columns = 1;
+}
+
+message ColumnInfo {
+  string name = 1;
+  string type = 2;
+  bool nullable = 3;
+  bool is_primary_key = 4;
+  string default_value = 5;   // Default value expression (empty if none)
+  string comment = 6;         // Column comment/description
+}
+
+message GetTableInfoRequest {
+  string connection_id = 1;
+  string schema = 2;
+  string table = 3;
+}
+
+message GetTableInfoResponse {
+  TableMetadata metadata = 1;
+}
+
+message TableMetadata {
+  string owner = 1;
+  int64 row_count = 2;         // Estimated row count
+  int64 total_size = 3;        // Total size in bytes (table + indexes + toast)
+  int64 table_size = 4;        // Table data size in bytes
+  int64 index_size = 5;        // Indexes size in bytes
+  string encoding = 6;         // Database encoding
+  string collation = 7;        // Database collation
+  string comment = 8;          // Table comment/description
+  string kind = 9;             // Object kind: 'table', 'partitioned_table', 'view', 'materialized_view'
+  string definition = 10;      // View/materialized view definition (SQL)
+}
+
+// Indexes
+message IndexInfo {
+  string name = 1;
+  bool is_unique = 2;
+  bool is_primary = 3;
+  string method = 4;            // btree, hash, gin, gist, etc.
+  repeated string columns = 5;
+  string definition = 6;        // Full CREATE INDEX statement
+}
+
+message GetIndexesRequest {
+  string connection_id = 1;
+  string schema = 2;
+  string table = 3;
+}
+
+message GetIndexesResponse {
+  repeated IndexInfo indexes = 1;
+}
+
+// Constraints
+message ConstraintInfo {
+  string name = 1;
+  string type = 2;              // 'PRIMARY KEY', 'FOREIGN KEY', 'UNIQUE', 'CHECK', 'EXCLUDE'
+  repeated string columns = 3;
+  string definition = 4;        // For CHECK constraints, the check expression
+  string ref_table = 5;         // For FK: referenced table (schema.table)
+  repeated string ref_columns = 6;  // For FK: referenced columns
+}
+
+message GetConstraintsRequest {
+  string connection_id = 1;
+  string schema = 2;
+  string table = 3;
+}
+
+message GetConstraintsResponse {
+  repeated ConstraintInfo constraints = 1;
+  repeated ConstraintInfo referenced_by = 2;
+}
+
+// Triggers
+message TriggerInfo {
+  string name = 1;
+  string timing = 2;            // BEFORE, AFTER, INSTEAD OF
+  string event = 3;             // INSERT, UPDATE, DELETE, TRUNCATE (can be combined)
+  string level = 4;             // ROW or STATEMENT
+  string function = 5;          // Trigger function name
+  bool enabled = 6;
+}
+
+message GetTriggersRequest {
+  string connection_id = 1;
+  string schema = 2;
+  string table = 3;
+}
+
+message GetTriggersResponse {
+  repeated TriggerInfo triggers = 1;
+}
+
+// Policies (Row-Level Security)
+message PolicyInfo {
+  string name = 1;
+  string command = 2;           // ALL, SELECT, INSERT, UPDATE, DELETE
+  string permissive = 3;        // PERMISSIVE or RESTRICTIVE
+  repeated string roles = 4;    // Roles the policy applies to
+  string using_expr = 5;        // USING expression
+  string check_expr = 6;        // WITH CHECK expression
+}
+
+message GetPoliciesRequest {
+  string connection_id = 1;
+  string schema = 2;
+  string table = 3;
+}
+
+message GetPoliciesResponse {
+  repeated PolicyInfo policies = 1;
+}
+
+// Grants (Table Permissions)
+message GrantInfo {
+  string grantee = 1;           // Role name or PUBLIC
+  repeated string privileges = 2;  // SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
+  string grantor = 3;
+}
+
+message GetGrantsRequest {
+  string connection_id = 1;
+  string schema = 2;
+  string table = 3;
+}
+
+message GetGrantsResponse {
+  repeated GrantInfo grants = 1;
+}
+
+// Materialized Views
+message MaterializedViewInfo {
+  string name = 1;
+}
+
+message GetMaterializedViewsRequest {
+  string connection_id = 1;
+  string schema = 2;
+}
+
+message GetMaterializedViewsResponse {
+  repeated MaterializedViewInfo materialized_views = 1;
+}
+
+// Functions
+message FunctionInfo {
+  string name = 1;
+  string return_type = 2;
+  string arguments = 3;
+}
+
+message GetFunctionsRequest {
+  string connection_id = 1;
+  string schema = 2;
+}
+
+message GetFunctionsResponse {
+  repeated FunctionInfo functions = 1;
+}
+
+// Procedures
+message ProcedureInfo {
+  string name = 1;
+  string arguments = 2;
+}
+
+message GetProceduresRequest {
+  string connection_id = 1;
+  string schema = 2;
+}
+
+message GetProceduresResponse {
+  repeated ProcedureInfo procedures = 1;
+}
+
+// Function/Procedure Info (detailed)
+message GetFunctionInfoRequest {
+  string connection_id = 1;
+  string schema = 2;
+  string name = 3;
+  string arguments = 4;  // For identifying specific overload
+}
+
+message GetFunctionInfoResponse {
+  FunctionMetadata metadata = 1;
+}
+
+message FunctionMetadata {
+  string name = 1;
+  string kind = 2;              // 'function' or 'procedure'
+  string owner = 3;
+  string language = 4;          // e.g., 'plpgsql', 'sql'
+  string return_type = 5;       // For functions only
+  string arguments = 6;
+  string definition = 7;        // Full CREATE FUNCTION/PROCEDURE statement
+  string volatility = 8;        // 'volatile', 'stable', 'immutable'
+  string comment = 9;
+}
+
+// Function/Procedure Dependencies
+message GetFunctionDependenciesRequest {
+  string connection_id = 1;
+  string schema = 2;
+  string name = 3;
+  string arguments = 4;  // For identifying specific overload
+}
+
+message GetFunctionDependenciesResponse {
+  repeated DependencyInfo dependencies = 1;
+}
+
+message DependencyInfo {
+  string schema = 1;
+  string name = 2;
+  string type = 3;  // 'table', 'view', 'materialized_view', 'function', 'procedure'
+  string arguments = 4;  // For functions/procedures
+}
+
+// Active Sessions
+message ActiveSession {
+  int32 pid = 1;
+  string usename = 2;
+  string datname = 3;
+  string application_name = 4;
+  string client_addr = 5;
+  string state = 6;
+  string query = 7;
+  string query_start = 8;
+  string state_change = 9;
+}
+
+message GetActiveSessionsRequest {
+  string connection_id = 1;
+}
+
+message GetActiveSessionsResponse {
+  repeated ActiveSession sessions = 1;
+  string error = 2;
+}
+
+message TerminateSessionRequest {
+  string connection_id = 1;
+  int32 pid = 2;
+}
+
+message TerminateSessionResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message AuditExportRequest {
+  string connection_id = 1;
+  string sql = 2;
+  int32 row_count = 3;
+  string format = 4;
+}
+
+message AuditExportResponse {}

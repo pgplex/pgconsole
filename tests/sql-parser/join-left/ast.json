@@ -1,0 +1,60 @@
+[
+  {
+    "kind": "select",
+    "distinct": false,
+    "distinctOn": null,
+    "columns": [
+      {
+        "expr": {
+          "kind": "column",
+          "table": null,
+          "column": "*"
+        },
+        "alias": null
+      }
+    ],
+    "from": {
+      "kind": "join",
+      "type": "left",
+      "left": {
+        "kind": "table",
+        "schema": null,
+        "table": "orders",
+        "alias": "o",
+        "tablesample": null
+      },
+      "right": {
+        "kind": "table",
+        "schema": null,
+        "table": "users",
+        "alias": "u",
+        "tablesample": null
+      },
+      "on": {
+        "kind": "binary",
+        "op": "=",
+        "left": {
+          "kind": "column",
+          "table": "o",
+          "column": "user_id"
+        },
+        "right": {
+          "kind": "column",
+          "table": "u",
+          "column": "id"
+        }
+      },
+      "using": null
+    },
+    "where": null,
+    "groupBy": null,
+    "having": null,
+    "orderBy": null,
+    "limit": null,
+    "offset": null,
+    "windowClause": null,
+    "withClause": null,
+    "setOp": null,
+    "lockingClause": null
+  }
+]

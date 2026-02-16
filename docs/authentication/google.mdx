@@ -1,0 +1,68 @@
+---
+title: Google
+---
+
+<Info>This feature requires the **Team** or **Enterprise** plan.</Info>
+
+Allow users to sign in with their Google accounts.
+
+## Prerequisites
+
+- A Google Cloud project
+- [external_url](/configuration/config#general)
+
+## Setup
+
+### 1. Create OAuth Credentials
+
+1. Go to the [Google Cloud Console](https://console.cloud.google.com/)
+2. Select or create a project
+3. Navigate to **APIs & Services** > **Credentials**
+4. Click **Create Credentials** > **OAuth client ID**
+5. If prompted, configure the OAuth consent screen first:
+   - Choose **Internal** to restrict sign-in to your Google Workspace organization only
+   - Choose **External** to allow any Google account to sign in
+6. Select **Web application** as the application type
+7. Add authorized redirect URI:
+   ```
+   <<external_url>>/api/auth/google/callback
+   ```
+8. Click **Create**
+9. Copy the **Client ID** and **Client Secret**
+
+### 2. Configure pgconsole
+
+Add the Google provider to your `pgconsole.toml`:
+
+```toml pgconsole.toml
+[general]
+external_url = "https://pgconsole.example.com"
+
+[auth]
+# openssl rand -hex 32
+jwt_secret = "your-secret-key-at-least-32-characters-long"
+signin_expiry = "7d"
+
+[[auth.providers]]
+type = "google"
+client_id = "your-client-id.apps.googleusercontent.com"
+client_secret = "your-client-secret"
+
+# Google email is used as the user identifier in groups and IAM rules
+[[groups]]
+id = "dev-team"
+name = "Development Team"
+members = ["alice@example.com", "bob@example.com"]
+
+[[iam]]
+connection = "production"
+permissions = ["read"]
+members = ["user:carol@example.com", "group:dev-team"]
+```
+
+See [OAuth Providers](/configuration/config#oauth-providers) in the configuration reference for all provider fields.
+
+### 3. Restart pgconsole
+
+Restart the application for changes to take effect. A "Sign in with Google" button will appear on the login page.
+

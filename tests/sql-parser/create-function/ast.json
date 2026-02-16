@@ -1,0 +1,38 @@
+[
+  {
+    "kind": "create_function",
+    "name": "add_numbers",
+    "schema": "public",
+    "parameters": [
+      {
+        "name": "a",
+        "type": "int4",
+        "mode": null,
+        "default": null
+      },
+      {
+        "name": "b",
+        "type": "int4",
+        "mode": null,
+        "default": null
+      }
+    ],
+    "returnType": "int4",
+    "returnsSetOf": false,
+    "returnsTable": null,
+    "replace": true,
+    "language": "sql",
+    "isProcedure": false,
+    "volatility": null,
+    "strict": null,
+    "securityDefiner": null,
+    "leakproof": null,
+    "cost": null,
+    "rows": null,
+    "parallel": null,
+    "body": [
+      " SELECT a + b "
+    ],
+    "source": "CREATE OR REPLACE FUNCTION public.add_numbers(a integer, b integer) RETURNS integer LANGUAGE sql AS $$ SELECT a + b $$"
+  }
+]

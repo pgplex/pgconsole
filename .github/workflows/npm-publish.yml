@@ -1,0 +1,169 @@
+# Workflow for publishing the pgconsole package to npm
+# This workflow has two trigger modes:
+#
+# 1. Manual trigger (workflow_dispatch):
+#    - Allows manually specifying version and tag
+#    - Useful for deliberate releases
+#
+# 2. Automatic trigger (on push to main branch that modifies package.json):
+#    - Detects if the version has changed
+#    - Automatically determines the appropriate npm tag based on version format
+#    - Skips publishing if the version already exists on npm
+#
+# Authentication: Uses OIDC trusted publishing (no npm tokens required)
+# Prerequisites: Configure trusted publisher at https://www.npmjs.com/package/@pgplex/pgconsole/access
+#   - Organization/User: pgplex
+#   - Repository: pgconsole-code
+#   - Workflow filename: npm-publish.yml
+#   - Environment: (leave empty unless using GitHub environments)
+
+name: Publish to npm
+
+on:
+  # Manual trigger with customizable version and tag
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish (e.g., 0.1.0, 0.2.0-beta)"
+        required: false
+        default: ""
+      tag:
+        description: "NPM tag (e.g., latest, dev)"
+        required: false
+        default: "latest"
+
+  # Automatic trigger when package.json changes in main branch
+  push:
+    branches:
+      - main
+    paths:
+      - "package.json"
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    # Required permissions for OIDC trusted publishing
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      # Checkout the repository to get access to the code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Set up Node.js (no registry-url needed for OIDC trusted publishing)
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # Upgrade npm to latest for OIDC trusted publishing support (requires npm 11.5+)
+      - name: Upgrade npm
+        run: |
+          npm install -g npm@latest
+          echo "npm version: $(npm --version)"
+
+      # Install pnpm for faster and more reliable package management
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: latest
+
+      # Install project dependencies
+      - name: Install dependencies
+        run: pnpm install
+
+      # Build the project
+      - name: Build
+        run: pnpm run build
+
+      # Determine if we need to publish and what version/tag to use
+      - name: Check version and prepare for publishing
+        run: |
+          # Get current version from package.json
+          CURRENT_VERSION=$(jq -r '.version' package.json)
+
+          # CASE 1: Manual workflow trigger with specified version
+          if [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
+            TAG="${{ inputs.tag }}"
+            SHOULD_PUBLISH="true"
+            echo "Manual trigger: Using provided version ${VERSION} with tag ${TAG}"
+
+          # CASE 2: Automatic trigger from package.json changes
+          else
+            VERSION="${CURRENT_VERSION}"
+
+            # Check if this version already exists in npm registry to avoid duplicates
+            if npm view @pgplex/pgconsole@${VERSION} version &> /dev/null; then
+              echo "Version ${VERSION} already exists in npm registry. Skipping publish."
+              SHOULD_PUBLISH="false"
+            else
+              echo "Version ${VERSION} is new. Proceeding with publish."
+              SHOULD_PUBLISH="true"
+
+              # Determine appropriate npm tag based on version format:
+              # - For prerelease versions like "0.1.0-beta", use "beta" as the tag
+              # - For stable versions like "1.0.0", use "latest" as the tag
+              if [[ "${VERSION}" == *"-"* ]]; then
+                # Extract tag from version string (e.g., "beta" from "0.1.0-beta")
+                TAG=$(echo "${VERSION}" | cut -d'-' -f2 | cut -d'.' -f1)
+                echo "Prerelease version detected. Using '${TAG}' npm tag."
+              else
+                TAG="latest"
+                echo "Stable version detected. Using 'latest' npm tag."
+              fi
+            fi
+          fi
+
+          # Store values as environment variables for use in later steps
+          echo "PACKAGE_VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "NPM_TAG=${TAG}" >> $GITHUB_ENV
+          echo "SHOULD_PUBLISH=${SHOULD_PUBLISH}" >> $GITHUB_ENV
+
+          # Summary message
+          if [ "${SHOULD_PUBLISH}" = "true" ]; then
+            echo "Publishing version: ${VERSION} with tag: ${TAG}"
+          fi
+
+          # Only modify package.json if we're going to publish
+          if [ "${SHOULD_PUBLISH}" = "true" ]; then
+            # Step 1: Update package name, version, and remove private flag
+            echo "Preparing package.json for publishing..."
+            jq --arg version "$VERSION" '.name = "@pgplex/pgconsole" | .version = $version | del(.private)' package.json > package.json.tmp
+            mv package.json.tmp package.json
+
+            # Step 2: Configure which files to include in the published package
+            echo "Setting files to include in the npm package..."
+            jq '.files = ["dist/**/*", "LICENSE", "README.md"]' package.json > package.json.tmp
+            mv package.json.tmp package.json
+
+            # Step 3: Add binary entry for CLI usage (makes it executable with 'npx' or after global install)
+            echo "Adding bin entry for CLI usage..."
+            jq '.bin = {"pgconsole": "dist/server.mjs"}' package.json > package.json.tmp
+            mv package.json.tmp package.json
+
+            echo "Package.json prepared successfully for publishing"
+          else
+            echo "Skipping package.json modifications as we won't be publishing"
+          fi
+
+      # Publish the package to npm using OIDC trusted publishing
+      # Note: Must use npm (not pnpm) for OIDC - feature is implemented in npm CLI 11.5+
+      - name: Publish to npm
+        if: env.SHOULD_PUBLISH == 'true'
+        run: |
+          echo "Publishing @pgplex/pgconsole@${{ env.PACKAGE_VERSION }} with tag ${{ env.NPM_TAG }}..."
+          echo "npm version: $(npm --version)"
+          # No NODE_AUTH_TOKEN needed - authentication via GitHub OIDC
+          npm publish --access public --tag ${{ env.NPM_TAG }}
+          echo "Successfully published to npm!"
+
+      # Display a message when skipping publication
+      - name: Skip publishing
+        if: env.SHOULD_PUBLISH != 'true'
+        run: |
+          echo "Skipping publish step because:"
+          echo "   - Version has not changed, or"
+          echo "   - Version already exists in the npm registry"
+          echo "To force publication, use the manual workflow trigger with a custom version."

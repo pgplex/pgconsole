@@ -1,0 +1,7 @@
+SELECT
+  *
+FROM
+  queue
+WHERE
+  processed = FALSE
+FOR UPDATE SKIP LOCKED;

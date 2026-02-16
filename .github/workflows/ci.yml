@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "website/**"
+      - "worker/**"
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "website/**"
+      - "worker/**"
+
+jobs:
+  api-tests:
+    name: API Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Hurl
+        run: |
+          curl --location --remote-name https://github.com/Orange-OpenSource/hurl/releases/download/5.0.1/hurl_5.0.1_amd64.deb
+          sudo apt update && sudo apt install ./hurl_5.0.1_amd64.deb
+
+      - name: Check Docker runtime deps
+        run: node scripts/check-docker-deps.mjs
+
+      - name: Build
+        run: pnpm build
+
+      - name: Run API tests
+        run: pnpm test:api

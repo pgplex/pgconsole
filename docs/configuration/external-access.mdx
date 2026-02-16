@@ -1,0 +1,138 @@
+---
+title: Configure External Access
+---
+
+pgconsole listens on port `9876` by default (configurable via `--port`). You can access it directly or put it behind a reverse proxy.
+
+## Direct Access
+
+Users access pgconsole directly at its host and port.
+
+```mermaid
+flowchart LR
+    Browser --> pgconsole["pgconsole :9876"]
+```
+
+No additional configuration is needed.
+
+## Behind a Reverse Proxy
+
+A reverse proxy handles TLS termination and exposes pgconsole on a public domain. Set [`external_url`](/configuration/config#general) in `pgconsole.toml` to the public-facing URL so that pgconsole constructs correct OAuth callback URLs.
+
+```toml pgconsole.toml
+[general]
+external_url = "https://pgconsole.example.com"
+```
+
+```mermaid
+flowchart LR
+    Browser -->|external_url| Proxy -->|internal_url| pgconsole
+```
+
+### Nginx
+
+```nginx
+server {
+    server_name pgconsole.example.com;
+
+    location / {
+        proxy_pass http://localhost:9876;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+### Caddy
+
+Caddy provides automatic HTTPS with Let's Encrypt.
+
+```caddy
+pgconsole.example.com {
+    reverse_proxy localhost:9876
+}
+```
+
+### Kubernetes Ingress
+
+Use an Ingress resource to expose pgconsole with TLS termination inside a Kubernetes cluster.
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pgconsole-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - pgconsole.example.com
+      secretName: pgconsole-tls
+  rules:
+    - host: pgconsole.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: pgconsole
+                port:
+                  number: 9876
+```
+
+The `pgconsole-tls` Secret holds your TLS certificate. If you use [cert-manager](https://cert-manager.io/), add the annotation `cert-manager.io/cluster-issuer` to provision it automatically.
+
+### Kubernetes Gateway API
+
+The [Gateway API](https://gateway-api.sigs.k8s.io/) is the successor to Ingress. Define a Gateway for TLS termination and an HTTPRoute for routing:
+
+```yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: pgconsole-gateway
+spec:
+  gatewayClassName: nginx
+  listeners:
+    - name: https
+      protocol: HTTPS
+      port: 443
+      hostname: pgconsole.example.com
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: pgconsole-tls
+    - name: http-redirect
+      protocol: HTTP
+      port: 80
+      hostname: pgconsole.example.com
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: pgconsole-route
+spec:
+  parentRefs:
+    - name: pgconsole-gateway
+  hostnames:
+    - pgconsole.example.com
+  rules:
+    - backendRefs:
+        - name: pgconsole
+          port: 9876
+```
+
+## OAuth Callback
+
+When SSO is configured, `external_url` is used to construct the OAuth callback URL. The OAuth provider redirects users back to `external_url` after authentication.
+
+```mermaid
+flowchart LR
+    pgconsole -->|① redirect| OAuthProvider[OAuth Provider]
+    OAuthProvider -->|② external_url callback| pgconsole
+```

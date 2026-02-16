@@ -1,0 +1,83 @@
+[
+  {
+    "kind": "select",
+    "distinct": false,
+    "distinctOn": null,
+    "columns": [
+      {
+        "expr": {
+          "kind": "column",
+          "table": null,
+          "column": "*"
+        },
+        "alias": null
+      }
+    ],
+    "from": {
+      "kind": "table",
+      "schema": null,
+      "table": "users",
+      "alias": null,
+      "tablesample": null
+    },
+    "where": {
+      "kind": "binary",
+      "op": "AND",
+      "left": {
+        "kind": "binary",
+        "op": "=",
+        "left": {
+          "kind": "column",
+          "table": null,
+          "column": "active"
+        },
+        "right": {
+          "kind": "literal",
+          "type": "boolean",
+          "value": true
+        }
+      },
+      "right": {
+        "kind": "binary",
+        "op": "OR",
+        "left": {
+          "kind": "binary",
+          "op": "=",
+          "left": {
+            "kind": "column",
+            "table": null,
+            "column": "role"
+          },
+          "right": {
+            "kind": "literal",
+            "type": "string",
+            "value": "admin"
+          }
+        },
+        "right": {
+          "kind": "binary",
+          "op": "=",
+          "left": {
+            "kind": "column",
+            "table": null,
+            "column": "role"
+          },
+          "right": {
+            "kind": "literal",
+            "type": "string",
+            "value": "owner"
+          }
+        }
+      }
+    },
+    "groupBy": null,
+    "having": null,
+    "orderBy": null,
+    "limit": null,
+    "offset": null,
+    "windowClause": null,
+    "withClause": null,
+    "setOp": null,
+    "lockingClause": null
+  }
+]

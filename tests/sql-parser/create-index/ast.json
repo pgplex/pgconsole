@@ -1,0 +1,27 @@
+[
+  {
+    "kind": "create_index",
+    "name": "idx_users_email",
+    "table": {
+      "kind": "table",
+      "schema": null,
+      "table": "users",
+      "alias": null,
+      "tablesample": null
+    },
+    "columns": [
+      {
+        "name": "email",
+        "order": "desc"
+      },
+      {
+        "name": "created_at",
+        "order": null
+      }
+    ],
+    "unique": true,
+    "concurrent": true,
+    "ifNotExists": true,
+    "source": "CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS idx_users_email ON users (email DESC, created_at)"
+  }
+]

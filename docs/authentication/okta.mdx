@@ -1,0 +1,111 @@
+---
+title: Okta
+---
+
+<Info>This feature requires the **Enterprise** plan.</Info>
+
+Allow users to sign in with Okta, a cloud identity and access management platform.
+
+## Prerequisites
+
+- An Okta organization (e.g. `https://your-org.okta.com`)
+- Admin access to create applications
+- [external_url](/configuration/config#general)
+
+## Setup
+
+### 1. Create an Application in Okta
+
+1. Open your Okta admin console
+2. Go to **Applications** > **Create App Integration**
+3. Select **OIDC - OpenID Connect** as the sign-in method
+4. Select **Web Application** as the application type
+5. Click **Next**
+6. Configure the application:
+   - **App integration name**: `pgconsole` (or your preferred name)
+   - **Grant type**: `Authorization Code` (default)
+   - **Sign-in redirect URIs**:
+     ```
+     <<external_url>>/api/auth/okta/callback
+     ```
+   - **Sign-out redirect URIs**: leave blank
+7. Under **Assignments**, control who can access pgconsole:
+   - **Limit access to selected groups** - Only assigned users/groups can sign in. Select the groups that should have access.
+   - **Skip group assignment for now** - Enables [Federation Broker Mode](https://support.okta.com/help/s/article/Federation-Broker-Mode). When no users or groups are assigned, Okta allows any user who can authenticate (including users from federated Identity Providers) to access the application.
+8. Click **Save**
+
+### 2. Get Client Credentials
+
+1. On the application's **General** tab, find the **Client Credentials** section
+2. Copy the **Client ID** and **Client secret**
+
+### 3. Get Issuer URL
+
+Most setups use the default custom authorization server:
+
+```
+https://your-org.okta.com/oauth2/default
+```
+
+Other options:
+- **Org authorization server**: `https://your-org.okta.com`
+- **Named custom authorization server**: `https://your-org.okta.com/oauth2/<server-id>`
+
+### 4. Configure pgconsole
+
+Add the Okta provider to your `pgconsole.toml`:
+
+```toml pgconsole.toml
+[general]
+external_url = "https://pgconsole.example.com"
+
+[auth]
+# openssl rand -hex 32
+jwt_secret = "your-secret-key-at-least-32-characters-long"
+signin_expiry = "7d"
+
+[[auth.providers]]
+type = "okta"
+client_id = "0oaXXXXXXXXXXXXXX"
+client_secret = "your-okta-client-secret"
+issuer_url = "https://your-org.okta.com/oauth2/default"
+
+# Okta email is used as the user identifier in groups and IAM rules
+[[groups]]
+id = "dev-team"
+name = "Development Team"
+members = ["alice@example.com", "bob@example.com"]
+
+[[iam]]
+connection = "production"
+permissions = ["read"]
+members = ["user:carol@example.com", "group:dev-team"]
+```
+
+See [OAuth Providers](/configuration/config#oauth-providers) in the configuration reference for all provider fields.
+
+### 5. Restart pgconsole
+
+Restart the application for changes to take effect. A "Continue with Okta" button will appear on the login page.
+
+## Troubleshooting
+
+### You are not allowed to access this app
+
+This error appears when a user tries to sign in. It comes from Okta before any token is issued. Two layers of Okta policies can cause it:
+
+**Application Authentication Policy** — Controls who can sign in to the application.
+
+1. Go to **Applications** > select your app > **Sign On** tab
+2. Click the linked authentication policy name
+3. Check the policy rules — the user must match at least one rule that allows access
+4. To grant access, add the user/group to an existing **Allow** rule, or create a new rule with the action set to **Allowed**
+
+**Authorization Server Access Policy** — Controls which clients can request tokens. This applies when using a custom authorization server (e.g. `/oauth2/default`).
+
+The default custom authorization server ships with a default policy and rule that allows all clients, the Authorization Code grant, and all scopes. No changes are needed unless your organization has modified these defaults.
+
+If the defaults have been restricted:
+
+1. Go to **Security** > **API** > select your authorization server > **Access Policies** tab
+2. Verify at least one rule allows your pgconsole app with the `Authorization Code` grant type and `openid`, `email`, `profile` scopes

@@ -1,0 +1,24 @@
+[
+  {
+    "kind": "truncate",
+    "tables": [
+      {
+        "kind": "table",
+        "schema": null,
+        "table": "orders",
+        "alias": null,
+        "tablesample": null
+      },
+      {
+        "kind": "table",
+        "schema": null,
+        "table": "order_items",
+        "alias": null,
+        "tablesample": null
+      }
+    ],
+    "cascade": true,
+    "restartIdentity": true,
+    "source": "TRUNCATE TABLE orders, order_items RESTART IDENTITY CASCADE"
+  }
+]

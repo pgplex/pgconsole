@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS my_schema.calculate_total(integer, numeric)

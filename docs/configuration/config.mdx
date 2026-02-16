@@ -1,0 +1,369 @@
+---
+title: pgconsole.toml Reference
+---
+
+pgconsole uses a TOML configuration file for all settings. Pass the config file with the `--config` flag. Without `--config`, pgconsole starts in [demo mode](/getting-started/quickstart#demo-mode).
+
+<Tabs>
+  <Tab title="Docker">
+    ```bash
+    docker run -p 9876:9876 -v /path/to/pgconsole.toml:/etc/pgconsole.toml pgplex/pgconsole
+    ```
+  </Tab>
+  <Tab title="npx">
+    ```bash
+    npx @pgplex/pgconsole --config /path/to/pgconsole.toml
+    ```
+  </Tab>
+  <Tab title="npm">
+    ```bash
+    pgconsole --config /path/to/pgconsole.toml
+    ```
+  </Tab>
+</Tabs>
+
+## Complete Example
+
+```toml pgconsole.toml
+[general]
+external_url = "https://pgconsole.example.com"
+license = "your-license-key"
+
+[general.banner]
+text = "System maintenance scheduled for Sunday 2am UTC"
+link = "https://status.example.com"
+color = "#7c3aed"
+
+[[labels]]
+id = "prod"
+name = "Production"
+color = "#ef4444"
+
+[[labels]]
+id = "staging"
+name = "Staging"
+color = "#f59e0b"
+
+[[connections]]
+id = "local"
+name = "Local Dev"
+host = "localhost"
+port = 5432
+database = "postgres"
+username = "postgres"
+password = "postgres"
+ssl_mode = "prefer"
+
+[[connections]]
+id = "production"
+name = "Production DB"
+host = "db.example.com"
+port = 5432
+database = "app"
+username = "readonly"
+password = "secret"
+ssl_mode = "verify-full"
+ssl_ca = "/path/to/ca.crt"
+ssl_cert = "/path/to/client.crt"
+ssl_key = "/path/to/client.key"
+labels = ["prod"]
+lock_timeout = "5s"
+statement_timeout = "30s"
+
+[auth]
+jwt_secret = "your-secret-key-at-least-32-characters-long"
+signin_expiry = "7d"
+
+[[auth.providers]]
+type = "google"
+client_id = "your-client-id"
+client_secret = "your-client-secret"
+
+[[auth.providers]]
+type = "keycloak"
+client_id = "pgconsole"
+client_secret = "your-client-secret"
+issuer_url = "https://keycloak.example.com/realms/your-realm"
+
+[[auth.providers]]
+type = "okta"
+client_id = "0oaXXXXXXXXXXXXXX"
+client_secret = "your-okta-client-secret"
+issuer_url = "https://your-org.okta.com/oauth2/default"
+
+[[users]]
+email = "admin@example.com"
+password = "your-password"
+owner = true
+
+[[users]]
+email = "alice@example.com"
+
+[[groups]]
+id = "dev-team"
+name = "Development Team"
+members = ["admin@example.com", "alice@example.com"]
+
+[[groups]]
+id = "dba"
+name = "Database Administrators"
+members = ["admin@example.com"]
+
+[[iam]]
+connection = "*"
+permissions = ["read"]
+members = ["*"]
+
+[[iam]]
+connection = "local"
+permissions = ["read", "write", "ddl", "admin"]
+members = ["user:admin@example.com", "group:dba"]
+
+[[ai.providers]]
+id = "gpt4"
+name = "GPT-4o"
+vendor = "openai"
+model = "gpt-4o"
+api_key = "sk-..."
+```
+
+## General
+
+| Field | Description | Required |
+|-------|-------------|----------|
+| `external_url` | Public URL of the application. See [Configure External Access](/configuration/external-access). | Required for SSO |
+| `license` | License key. See [Manage License](/configuration/license). | |
+
+```toml pgconsole.toml
+[general]
+external_url = "https://pgconsole.example.com"
+license = "your-license-key"
+```
+
+### Announcement Banner
+
+Optional banner displayed at the top of the page. The banner cannot be dismissed by users.
+
+| Field | Description | Required |
+|-------|-------------|----------|
+| `text` | Banner message text | Yes |
+| `link` | URL that makes the banner clickable (opens in new tab) | |
+| `color` | Hex color code for the banner background | |
+
+```toml pgconsole.toml
+[general.banner]
+text = "System maintenance scheduled for Sunday 2am UTC"
+link = "https://status.example.com"
+color = "#7c3aed"
+```
+
+## Labels
+
+Labels for tagging connections (e.g. Production, Staging). Referenced by the `labels` field in `[[connections]]`. Repeat for multiple labels.
+
+| Field | Description | Required |
+|-------|-------------|----------|
+| `id` | Unique identifier | Yes |
+| `name` | Display name | Yes |
+| `color` | Hex color code | Yes |
+
+```toml pgconsole.toml
+[[labels]]
+id = "prod"
+name = "Production"
+color = "#ef4444"
+```
+
+## Connections
+
+Database connections. Repeat for multiple connections.
+
+<Note>
+If connecting to a database on your host machine from Docker, use `host.docker.internal` instead of `localhost`.
+</Note>
+
+| Field | Description | Required | Default |
+|-------|-------------|----------|---------|
+| `id` | Unique identifier | Yes | |
+| `name` | Display name | Yes | |
+| `host` | PostgreSQL host | Yes | |
+| `port` | PostgreSQL port | | `5432` |
+| `database` | Database name | Yes | |
+| `username` | Database user | Yes | |
+| `password` | Database password | | |
+| `ssl_mode` | `disable`, `prefer`, `require`, or `verify-full` | | `prefer` |
+| `ssl_ca` | Path to CA certificate | | |
+| `ssl_cert` | Path to client certificate | | |
+| `ssl_key` | Path to client private key | | |
+| `labels` | Array of label IDs | | `[]` |
+| `lock_timeout` | [`lock_timeout`](https://www.postgresql.org/docs/current/runtime-config-client.html#GUC-LOCK-TIMEOUT), e.g. `"5s"` | | System default |
+| `statement_timeout` | [`statement_timeout`](https://www.postgresql.org/docs/current/runtime-config-client.html#GUC-STATEMENT-TIMEOUT), e.g. `"30s"` | | System default |
+| `lazy` | Skip connection test on startup | | `false` |
+
+```toml pgconsole.toml
+[[connections]]
+id = "production"
+name = "Production DB"
+host = "db.example.com"
+port = 5432
+database = "app"
+username = "readonly"
+password = "secret"
+ssl_mode = "verify-full"
+ssl_ca = "/path/to/ca.crt"
+ssl_cert = "/path/to/client.crt"
+ssl_key = "/path/to/client.key"
+labels = ["prod"]
+lock_timeout = "5s"
+statement_timeout = "30s"
+```
+
+## Authentication
+
+<Tip>
+
+To run without authentication, omit the `[auth]` section entirely.
+
+</Tip>
+
+| Field | Description | Required |
+|-------|-------------|----------|
+| `jwt_secret` | Secret key for JWT tokens (min 32 chars) | Yes |
+| `signin_expiry` | Session duration (`h`/`d`/`w`) | Yes |
+
+```toml pgconsole.toml
+[auth]
+jwt_secret = "your-secret-key-at-least-32-characters-long"
+signin_expiry = "7d"
+```
+
+### OAuth Providers
+
+OAuth providers are configured as an array of `[[auth.providers]]` entries. Each entry requires a `type` field. Repeat for multiple providers.
+
+| Field | Description | Required |
+|-------|-------------|----------|
+| `type` | Provider type: `google`, `keycloak`, or `okta` | Yes |
+| `client_id` | OAuth client ID | Yes |
+| `client_secret` | OAuth client secret | Yes |
+| `issuer_url` | Issuer URL (required for `keycloak` and `okta`) | |
+
+```toml pgconsole.toml
+# Google
+[[auth.providers]]
+type = "google"
+client_id = "your-client-id.apps.googleusercontent.com"
+client_secret = "your-client-secret"
+
+# Keycloak
+[[auth.providers]]
+type = "keycloak"
+client_id = "pgconsole"
+client_secret = "your-client-secret"
+issuer_url = "https://keycloak.example.com/realms/your-realm"
+
+# Okta
+[[auth.providers]]
+type = "okta"
+client_id = "0oaXXXXXXXXXXXXXX"
+client_secret = "your-okta-client-secret"
+issuer_url = "https://your-org.okta.com/oauth2/default"
+```
+
+## Users
+
+User entries. Repeat for multiple users. Users with a `password` can sign in with basic auth. Users without a `password` are SSO-only.
+
+| Field | Description | Required |
+|-------|-------------|----------|
+| `email` | User email or identifier | Yes |
+| `password` | Login password (omit for SSO-only users) | |
+| `owner` | Grants access to subscription management | |
+
+```toml pgconsole.toml
+[[users]]
+email = "admin@example.com"
+password = "your-password"
+owner = true
+
+[[users]]
+email = "alice@example.com"
+# SSO-only user - no password
+```
+
+### Owner Role
+
+Users with `owner = true` can view subscription status and access upgrade options. See [Manage License](/configuration/license). If no user has `owner = true`, the first user entry automatically becomes the owner.
+
+## Groups
+
+User groups for organizing users. Repeat for multiple groups.
+
+| Field | Description | Required |
+|-------|-------------|----------|
+| `id` | Unique identifier | Yes |
+| `name` | Display name | Yes |
+| `members` | Array of user emails | Yes |
+
+Members are user emails matching `[[users]]` entries.
+
+```toml pgconsole.toml
+[[groups]]
+id = "dev-team"
+name = "Development Team"
+members = ["admin@example.com", "alice@example.com"]
+```
+
+## Access Control (IAM)
+
+Rules for controlling access to connections. See [Database Access Control](/features/database-access-control) for a full guide on permissions, patterns, and examples.
+
+| Field | Description | Required |
+|-------|-------------|----------|
+| `connection` | Connection ID or `*` for all | Yes |
+| `permissions` | Array: `read`, `write`, `ddl`, `admin`, `explain`, `execute`, `export`, or `*` for all | Yes |
+| `members` | Array: `user:<email>`, `group:<id>`, or `*` for all users | Yes |
+
+```toml pgconsole.toml
+[[iam]]
+connection = "*"
+permissions = ["read"]
+members = ["*"]
+
+[[iam]]
+connection = "production"
+permissions = ["read", "write"]
+members = ["user:admin@example.com", "group:dev-team"]
+```
+
+### Validation
+
+IAM rules are validated when the configuration is loaded:
+
+- `connection` must be `*` or reference a valid connection ID
+- `permissions` must only contain valid values: `read`, `write`, `ddl`, `admin`, `explain`, `execute`, `export`, or `*`
+- `members` must use valid formats: `user:<email>`, `group:<id>`, or `*`
+- `group:<id>` must reference a defined group
+
+Invalid rules will cause the server to fail at startup with an error message.
+
+## AI Providers
+
+Configure providers for the [AI Assistant](/features/ai-assistant). Repeat for multiple providers.
+
+| Field | Description | Required |
+|-------|-------------|----------|
+| `id` | Unique identifier | Yes |
+| `name` | Display name (defaults to `id`) | |
+| `vendor` | AI vendor: `openai`, `anthropic`, `google` | Yes |
+| `model` | Model identifier | Yes |
+| `api_key` | API key for the vendor | Yes |
+
+```toml pgconsole.toml
+[[ai.providers]]
+id = "gpt4"
+name = "GPT-4o"
+vendor = "openai"
+model = "gpt-4o"
+api_key = "sk-..."
+```

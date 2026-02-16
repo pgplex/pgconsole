@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package connection.v1;
+
+service ConnectionService {
+  rpc ListConnections(ListConnectionsRequest) returns (ListConnectionsResponse);
+  rpc GetConnection(GetConnectionRequest) returns (GetConnectionResponse);
+  rpc TestConnection(TestConnectionRequest) returns (TestConnectionResponse);
+}
+
+message Label {
+  string id = 1;
+  string name = 2;
+  string color = 3;
+}
+
+message Connection {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string host = 4;
+  int32 port = 5;
+  string database = 6;
+  string username = 7;
+  bool has_password = 8;
+  string ssl_mode = 9;
+  repeated Label labels = 10;
+  string version = 11; // PostgreSQL version (e.g., "16")
+  repeated string permissions = 12;
+}
+
+message ListConnectionsRequest {}
+
+message ListConnectionsResponse {
+  repeated Connection connections = 1;
+}
+
+message GetConnectionRequest {
+  string id = 1;
+}
+
+message GetConnectionResponse {
+  Connection connection = 1;
+}
+
+message TestConnectionRequest {
+  string id = 1;
+}
+
+message TestConnectionResponse {
+  bool success = 1;
+  string error = 2;
+  int32 latency_ms = 3;
+}

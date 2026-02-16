@@ -1,0 +1,15 @@
+[
+  {
+    "kind": "drop",
+    "objectType": "table",
+    "objects": [
+      {
+        "schema": "public",
+        "name": "users"
+      }
+    ],
+    "ifExists": true,
+    "cascade": true,
+    "source": "DROP TABLE IF EXISTS public.users CASCADE"
+  }
+]

@@ -1,0 +1,97 @@
+---
+title: AI Assistant
+---
+
+pgconsole includes an AI assistant that helps you work with your database. Features include Text-to-SQL generation, query explanation, error fixing, query rewriting, and change risk assessment.
+
+## Configuration
+
+<Note> API keys are stored in your config file and never sent to the frontend. </Note>
+
+Add one or more AI providers to your `pgconsole.toml`. See [AI Providers](/configuration/config#ai-providers) for the full field reference.
+
+<Tabs>
+  <Tab title="OpenAI">
+    ```toml pgconsole.toml
+    [[ai.providers]]
+    id = "gpt4"
+    name = "GPT-4o"
+    vendor = "openai"
+    model = "gpt-4o"
+    api_key = "sk-..."
+    ```
+  </Tab>
+  <Tab title="Anthropic">
+    ```toml pgconsole.toml
+    [[ai.providers]]
+    id = "claude"
+    name = "Claude Sonnet"
+    vendor = "anthropic"
+    model = "claude-sonnet-4-20250514"
+    api_key = "sk-ant-..."
+    ```
+  </Tab>
+  <Tab title="Google">
+    ```toml pgconsole.toml
+    [[ai.providers]]
+    id = "gemini"
+    name = "Gemini Pro"
+    vendor = "google"
+    model = "gemini-2.5-pro"
+    api_key = "AIza..."
+    ```
+  </Tab>
+</Tabs>
+
+## Features
+
+### Text-to-SQL
+
+Generate SQL queries from natural language descriptions. Open the **Chat** tab in the right panel, select an AI provider, and describe the query you need. Conversations support multi-turn follow-ups.
+
+![Text-to-SQL conversation](/images/features/ai-assistant/ai-text-to-sql.webp)
+
+### Fix SQL
+
+When the editor detects a syntax error (via inline linting), an AI fix suggestion appears. Clicking it sends the SQL and error message to the AI, which returns a corrected version that replaces the original in the editor.
+
+![Fix SQL with AI](/images/features/ai-assistant/ai-fix-sql.webp)
+
+### Explain SQL
+
+Get plain-language explanations of SQL queries.
+
+**Usage:**
+
+- Right-click a query in the editor and select **Explain with AI**
+- Or click the **Explain** button in a function/procedure schema tab
+
+The explanation opens in the Chat tab, where you can ask follow-up questions about the query.
+
+![Explain SQL with AI](/images/features/ai-assistant/ai-explain-sql.webp)
+
+### Rewrite SQL
+
+**Usage:** Right-click a query in the editor and select **Rewrite with AI**.
+
+The AI rewrites the query for better performance or readability, using your database schema for context. The rewritten SQL replaces the original in the editor.
+
+### Change Risk Assessment
+
+Analyze staged changes for potential risks before execution. In the [staged changes preview](/features/sql-editor#inline-editing), click **Assess Risk** to have the AI review the SQL. The assessment returns a list of findings, each with a severity level (high, moderate, low), category, and description.
+
+![Risk Assessment](/images/features/ai-assistant/ai-risk-assessment.webp)
+
+## Schema Context
+
+<Note> pgconsole only sends schema information to the AI provider. </Note>
+
+The AI assistant uses your database schema to generate accurate queries. Schema context includes tables, columns, types, constraints, indexes, and comments.
+
+Control which schemas are included in the AI context via the database icon in the Chat toolbar:
+
+| Mode | Behavior |
+|------|----------|
+| **Current schema** (default) | Only the currently selected schema |
+| **All schemas** | All non-system schemas |
+| **Custom** | Cherry-pick specific schemas via checkboxes |

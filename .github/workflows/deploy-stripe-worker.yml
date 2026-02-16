@@ -1,0 +1,40 @@
+name: Deploy Stripe Webhook Worker
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "worker/stripe-webhook/**"
+      - ".github/workflows/deploy-stripe-worker.yml"
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: worker/stripe-webhook
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm ci
+
+      - name: Deploy
+        run: npx wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Set secrets
+        run: |
+          echo "${{ secrets.STRIPE_WEBHOOK_SECRET_LIVE }}" | npx wrangler secret put STRIPE_WEBHOOK_SECRET_LIVE
+          echo "${{ secrets.STRIPE_WEBHOOK_SECRET_TEST }}" | npx wrangler secret put STRIPE_WEBHOOK_SECRET_TEST
+          echo "${{ secrets.RESEND_API_KEY }}" | npx wrangler secret put RESEND_API_KEY
+          echo "${{ secrets.KEYGEN_API_KEY }}" | npx wrangler secret put KEYGEN_API_KEY
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

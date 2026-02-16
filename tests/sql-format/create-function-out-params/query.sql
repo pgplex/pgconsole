@@ -1,0 +1,1 @@
+CREATE FUNCTION get_stats(IN tbl text, OUT min_val integer, OUT max_val integer) LANGUAGE plpgsql SECURITY DEFINER COST 100 AS $$ BEGIN SELECT MIN(value), MAX(value) INTO min_val, max_val FROM stats WHERE table_name = tbl; END; $$

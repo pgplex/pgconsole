@@ -1,0 +1,42 @@
+---
+title: Overview
+---
+
+pgconsole supports multiple authentication methods to secure access to your database console.
+
+## Available Methods
+
+| Method | Description | Best For |
+|--------|-------------|----------|
+| Email/Password | Built-in local authentication | Simple setups, small teams |
+| SSO ([Google](/authentication/google), [Okta](/authentication/okta), [Keycloak](/authentication/keycloak)) | OAuth providers | Enterprise, existing identity providers |
+
+## Configuration
+
+Authentication is configured in your `pgconsole.toml` file. Add an `[auth]` section and `[[users]]` entries:
+
+```toml pgconsole.toml
+[auth]
+# openssl rand -hex 32
+jwt_secret = "your-secret-key-at-least-32-characters-long"
+signin_expiry = "7d"  # h=hours, d=days, w=weeks
+
+[[users]]
+email = "admin@example.com"
+password = "your-secure-password"
+
+[[users]]
+email = "developer@example.com"
+password = "another-password"
+
+[[users]]
+email = "carol@example.com"  # SSO-only, no password
+```
+
+Users with a `password` field can sign in with email/password. Users without a `password` field are SSO-only — they must sign in via an OAuth provider.
+
+See [Authentication](/configuration/config#authentication) and [Users](/configuration/config#users) in the configuration reference for all available fields.
+
+## Disabling Authentication
+
+To run pgconsole without authentication (not recommended for production), simply omit the `[auth]` section from your configuration file.

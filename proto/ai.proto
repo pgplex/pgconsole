@@ -1,0 +1,109 @@
+syntax = "proto3";
+
+package ai.v1;
+
+service AIService {
+  rpc ListAIProviders(ListAIProvidersRequest) returns (ListAIProvidersResponse);
+  rpc GenerateSQL(GenerateSQLRequest) returns (GenerateSQLResponse);
+  rpc ExplainSQL(ExplainSQLRequest) returns (ExplainSQLResponse);
+  rpc FixSQL(FixSQLRequest) returns (FixSQLResponse);
+  rpc RewriteSQL(RewriteSQLRequest) returns (RewriteSQLResponse);
+  rpc RefreshSchemaCache(RefreshSchemaCacheRequest) returns (RefreshSchemaCacheResponse);
+  rpc AssessChangeRisk(AssessChangeRiskRequest) returns (AssessChangeRiskResponse);
+}
+
+message AIProvider {
+  string id = 1;
+  string name = 2;
+  string vendor = 3;
+  string model = 4;
+}
+
+message ListAIProvidersRequest {}
+
+message ListAIProvidersResponse {
+  repeated AIProvider providers = 1;
+}
+
+message GenerateSQLRequest {
+  string connection_id = 1;
+  string provider_id = 2;
+  string prompt = 3;
+  repeated string schemas = 4; // Empty means current schema only
+  string session_id = 5; // Optional, empty on first message
+}
+
+message GenerateSQLResponse {
+  string sql = 1;
+  string error = 2;
+  string session_id = 3; // Provider's session ID for continuation
+}
+
+message ExplainSQLRequest {
+  string connection_id = 1;
+  string provider_id = 2;
+  string sql = 3; // The SQL query to explain
+  repeated string schemas = 4; // Schema context
+  string session_id = 5; // Optional, empty on first message
+}
+
+message ExplainSQLResponse {
+  string explanation = 1;
+  string error = 2;
+  string session_id = 3; // Provider's session ID for continuation
+}
+
+message FixSQLRequest {
+  string connection_id = 1;
+  string provider_id = 2;
+  string sql = 3; // The SQL with syntax error
+  string error_message = 4; // The syntax error message
+  repeated string schemas = 5; // Schema context
+}
+
+message FixSQLResponse {
+  string sql = 1; // The fixed SQL
+  string error = 2;
+}
+
+message RewriteSQLRequest {
+  string connection_id = 1;
+  string provider_id = 2;
+  string sql = 3; // The SQL to rewrite and improve
+  repeated string schemas = 4; // Schema context
+}
+
+message RewriteSQLResponse {
+  string sql = 1; // The rewritten SQL
+  string error = 2;
+}
+
+message RefreshSchemaCacheRequest {
+  string connection_id = 1;
+  repeated string schemas = 2; // Empty means all non-system schemas
+}
+
+message RefreshSchemaCacheResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message AssessChangeRiskRequest {
+  string connection_id = 1;
+  string provider_id = 2;
+  repeated string sql_statements = 3;
+  repeated string schemas = 4;
+}
+
+message RiskFinding {
+  string severity = 1;
+  string category = 2;
+  string description = 3;
+}
+
+message AssessChangeRiskResponse {
+  string overall_risk = 1;
+  repeated RiskFinding findings = 2;
+  string error = 3;
+  string dependency_graph = 4; // Mermaid diagram of object dependencies
+}

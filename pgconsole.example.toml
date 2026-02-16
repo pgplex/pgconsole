@@ -1,0 +1,189 @@
+# pgconsole.toml - Database connections configuration
+# Copy this file to pgconsole.toml and update with your connections
+
+# =============================================================================
+# General settings
+# =============================================================================
+# [general]
+# external_url = "https://pgconsole.example.com"  # Required when OAuth providers are enabled
+# license = "eyJhbGciOiJSUzI1NiJ9..."             # License key (JWT). Omit for FREE plan.
+#
+# # Banner (optional) - displays at the top of the page, cannot be dismissed
+# [general.banner]
+# text = "System maintenance scheduled for Sunday 2am UTC"
+# link = "https://status.example.com"  # Optional - makes entire banner clickable (opens in new tab)
+# color = "#7c3aed"  # Optional
+
+# =============================================================================
+# AI providers for Text-to-SQL (optional)
+# =============================================================================
+# Supported vendors: openai, anthropic, google
+#
+# [[ai.providers]]
+# id = "gpt4"
+# name = "GPT-4o"
+# vendor = "openai"
+# model = "gpt-4o"
+# api_key = "sk-..."
+#
+# [[ai.providers]]
+# id = "claude"
+# name = "Claude Sonnet"
+# vendor = "anthropic"
+# model = "claude-sonnet-4-20250514"
+# api_key = "sk-ant-..."
+#
+# [[ai.providers]]
+# id = "gemini"
+# name = "Gemini Pro"
+# vendor = "google"
+# model = "gemini-1.5-pro"
+# api_key = "AIza..."
+
+# =============================================================================
+# Labels for organizing connections
+# =============================================================================
+[[labels]]
+id = "dev"
+name = "Development"
+color = "#3b82f6"    # blue
+
+[[labels]]
+id = "staging"
+name = "Staging"
+color = "#f59e0b" # amber
+
+[[labels]]
+id = "prod"
+name = "Production"
+color = "#ef4444"   # red
+
+[[labels]]
+id = "critical"
+name = "Critical"
+color = "#dc2626" # dark red
+
+# =============================================================================
+# Connections
+# =============================================================================
+
+[[connections]]
+id = "local"
+name = "Local Development"
+host = "localhost"
+port = 5432
+database = "postgres"
+username = "postgres"
+password = "postgres"
+labels = ["dev"]
+
+[[connections]]
+id = "staging"
+name = "Staging"
+host = "staging.example.com"
+port = 5432
+database = "myapp"
+username = "app_user"
+password = "staging_password"
+ssl_mode = "require"
+labels = ["staging"]
+
+# Example with full SSL configuration and timeouts
+# [[connections]]
+# id = "production"
+# name = "Production"
+# host = "prod.example.com"
+# port = 5432
+# database = "myapp"
+# username = "app_user"
+# password = "prod_password"
+# ssl_mode = "verify-full"
+# ssl_ca = "/path/to/ca.crt"
+# ssl_cert = "/path/to/client.crt"
+# ssl_key = "/path/to/client.key"
+# labels = ["prod", "critical"]
+# lock_timeout = "5s"        # Optional - abort if lock not acquired within duration
+# statement_timeout = "30s"  # Optional - abort queries exceeding duration
+# lazy = true                # Optional - skip connection test on startup
+
+# =============================================================================
+# Authentication (optional - if omitted, no authentication is required)
+# =============================================================================
+
+# [auth]
+# jwt_secret = "your-secret-key-at-least-32-characters-long"    # openssl rand -hex 32
+# signin_expiry = "7d"  # session duration: h=hours, d=days, w=weeks (default: 7d)
+#
+# # OAuth providers (optional)
+# [[auth.providers]]
+# type = "google"
+# client_id = "your-google-client-id.apps.googleusercontent.com"
+# client_secret = "your-google-client-secret"
+#
+# [[auth.providers]]
+# type = "keycloak"
+# issuer_url = "https://keycloak.example.com/realms/myrealm"
+# client_id = "pgconsole"
+# client_secret = "your-keycloak-client-secret"
+#
+# [[auth.providers]]
+# type = "okta"
+# issuer_url = "https://your-org.okta.com/oauth2/default"
+# client_id = "your-okta-client-id"
+# client_secret = "your-okta-client-secret"
+#
+# =============================================================================
+# Users (required when auth is enabled)
+# =============================================================================
+# Each user needs an email. Password present = basic auth login.
+# No password = SSO-only (must match an OAuth provider login).
+#
+# [[users]]
+# email = "admin@example.com"
+# password = "admin123"
+#
+# [[users]]
+# email = "developer@example.com"
+# password = "dev456"
+#
+# [[users]]
+# email = "alice@example.com"   # SSO-only user (no password)
+# 
+# User groups (optional)
+# Members are user emails
+# [[groups]]
+# id = "dev-team"
+# name = "Development Team"
+# members = ["developer", "alice@example.com"]
+#
+# [[groups]]
+# id = "dba"
+# name = "Database Administrators"
+# members = ["admin"]
+
+# =============================================================================
+# IAM Rules (optional - requires auth to be enabled)
+# =============================================================================
+# Controls what users can do on each connection
+# Permissions: read (SELECT), write (INSERT/UPDATE/DELETE), ddl (CREATE/ALTER/DROP),
+#   admin (full access), explain (EXPLAIN), execute (CALL), export (CSV export)
+#   Use "*" to grant all permissions at once
+# Members: "user:username", "group:groupid", or "*" for all users
+# Connection: specific connection id or "*" for all connections
+# Multiple matching rules are unioned (user gets all permissions from all matching rules)
+# Default deny: no matching rule = no access (connection hidden from user)
+#
+# [[iam]]
+# connection = "*"
+# permissions = ["read"]
+# members = ["*"]
+#
+# [[iam]]
+# connection = "local"
+# permissions = ["*"]
+# members = ["user:admin", "group:dba"]
+#
+# [[iam]]
+# connection = "staging"
+# permissions = ["read", "write"]
+# members = ["group:dev-team"]

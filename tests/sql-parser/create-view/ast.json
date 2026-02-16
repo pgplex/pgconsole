@@ -1,0 +1,69 @@
+[
+  {
+    "kind": "create_view",
+    "view": {
+      "kind": "table",
+      "schema": null,
+      "table": "active_users",
+      "alias": null,
+      "tablesample": null
+    },
+    "query": {
+      "kind": "select",
+      "distinct": false,
+      "distinctOn": null,
+      "columns": [
+        {
+          "expr": {
+            "kind": "column",
+            "table": null,
+            "column": "id"
+          },
+          "alias": null
+        },
+        {
+          "expr": {
+            "kind": "column",
+            "table": null,
+            "column": "name"
+          },
+          "alias": null
+        }
+      ],
+      "from": {
+        "kind": "table",
+        "schema": null,
+        "table": "users",
+        "alias": null,
+        "tablesample": null
+      },
+      "where": {
+        "kind": "binary",
+        "op": "=",
+        "left": {
+          "kind": "column",
+          "table": null,
+          "column": "active"
+        },
+        "right": {
+          "kind": "literal",
+          "type": "boolean",
+          "value": true
+        }
+      },
+      "groupBy": null,
+      "having": null,
+      "orderBy": null,
+      "limit": null,
+      "offset": null,
+      "windowClause": null,
+      "withClause": null,
+      "setOp": null,
+      "lockingClause": null
+    },
+    "replace": true,
+    "materialized": false,
+    "ifNotExists": false,
+    "source": "CREATE OR REPLACE VIEW active_users AS SELECT id, name FROM users WHERE active = true"
+  }
+]

@@ -1,0 +1,69 @@
+[
+  {
+    "kind": "select",
+    "distinct": false,
+    "distinctOn": null,
+    "columns": [
+      {
+        "expr": {
+          "kind": "column",
+          "table": null,
+          "column": "country"
+        },
+        "alias": null
+      },
+      {
+        "expr": {
+          "kind": "func",
+          "name": "COUNT",
+          "args": [],
+          "distinct": false,
+          "star": true,
+          "filter": null,
+          "over": null
+        },
+        "alias": "cnt"
+      }
+    ],
+    "from": {
+      "kind": "table",
+      "schema": null,
+      "table": "users",
+      "alias": null,
+      "tablesample": null
+    },
+    "where": null,
+    "groupBy": [
+      {
+        "kind": "column",
+        "table": null,
+        "column": "country"
+      }
+    ],
+    "having": {
+      "kind": "binary",
+      "op": ">",
+      "left": {
+        "kind": "func",
+        "name": "COUNT",
+        "args": [],
+        "distinct": false,
+        "star": true,
+        "filter": null,
+        "over": null
+      },
+      "right": {
+        "kind": "literal",
+        "type": "number",
+        "value": 10
+      }
+    },
+    "orderBy": null,
+    "limit": null,
+    "offset": null,
+    "windowClause": null,
+    "withClause": null,
+    "setOp": null,
+    "lockingClause": null
+  }
+]

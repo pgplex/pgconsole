@@ -1,0 +1,5 @@
+SELECT
+  date,
+  AVG(amount) OVER (ORDER BY date RANGE BETWEEN INTERVAL '7 days' PRECEDING AND CURRENT ROW)
+FROM
+  sales;

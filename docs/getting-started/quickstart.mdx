@@ -1,0 +1,213 @@
+---
+title: Quickstart
+---
+
+Get pgconsole running and execute your first query in under a minute.
+
+## Step 1: Add a database connection
+
+Create a `pgconsole.toml` file with at least one connection:
+
+```toml pgconsole.toml
+[[connections]]
+id = "local"
+name = "Local PostgreSQL"
+host = "localhost"
+port = 5432
+database = "postgres"
+username = "postgres"
+password = "postgres"
+```
+
+<Note>
+If connecting to a database on your host machine from Docker, use `host.docker.internal` instead of `localhost` in your config.
+</Note>
+
+That's the minimum config. See [Config Reference](/configuration/config) for authentication, access control, AI providers, and more.
+
+## Step 2: Start
+
+<Tabs>
+  <Tab title="Docker (Recommended)">
+    ```bash
+    docker run -p 9876:9876 -v /path/to/pgconsole.toml:/etc/pgconsole.toml pgplex/pgconsole
+    ```
+
+  </Tab>
+  <Tab title="npx">
+    ```bash
+    npx @pgplex/pgconsole --config /path/to/pgconsole.toml
+    ```
+  </Tab>
+  <Tab title="npm">
+    ```bash
+    npm install -g @pgplex/pgconsole
+    pgconsole --config /path/to/pgconsole.toml
+    ```
+  </Tab>
+</Tabs>
+
+Once you see the banner in your terminal, pgconsole is ready:
+
+```
+    /\_ \
+ _____      __     ___    ___     ___     ____    ___\//\ \      __
+/\ '__`\  /'_ `\  /'___\ / __`\ /' _ `\  /',__\  / __`\\ \ \   /'__`\
+\ \ \L\ \/\ \L\ \/\ \__//\ \L\ \/\ \/\ \/\__, `\/\ \L\ \\_\ \_/\  __/
+ \ \ ,__/\ \____ \ \____\ \____/\ \_\ \_\/\____/\ \____//\____\ \____\
+  \ \ \/  \/___L\ \/____/\/___/  \/_/\/_/\/___/  \/___/ \/____/\/____/
+   \ \_\    /\____/
+    \/_/    \_/__/
+
+Server running on http://localhost:9876
+```
+
+Open `http://localhost:9876` in your browser. You'll see the SQL editor with the schema browser on the left.
+
+## Demo mode
+
+If you run pgconsole **without** `--config`, it starts in demo mode with an embedded in-memory PostgreSQL database pre-loaded with sample data:
+
+<Tabs>
+  <Tab title="Docker">
+    ```bash
+    docker run -p 9876:9876 pgplex/pgconsole
+    ```
+  </Tab>
+  <Tab title="npx">
+    ```bash
+    npx @pgplex/pgconsole
+    ```
+  </Tab>
+  <Tab title="npm">
+    ```bash
+    npm install -g @pgplex/pgconsole
+    pgconsole
+    ```
+  </Tab>
+</Tabs>
+
+<Info>
+Demo mode data is ephemeral and resets on every restart. To connect to a real database, create a `pgconsole.toml` as shown in [Step 1](#step-1-add-a-database-connection).
+</Info>
+
+## Docker Compose
+
+Add pgconsole as a service alongside your existing PostgreSQL in Docker Compose:
+
+```yaml docker-compose.yml
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+
+  pgconsole:
+    image: pgplex/pgconsole
+    ports:
+      - "9876:9876"
+    configs:
+      - source: pgconsole_config
+        target: /etc/pgconsole.toml
+    depends_on:
+      - postgres
+
+configs:
+  pgconsole_config:
+    content: |
+      [[connections]]
+      id = "local"
+      name = "Local PostgreSQL"
+      host = "postgres"
+      port = 5432
+      database = "postgres"
+      username = "postgres"
+      password = "postgres"
+```
+
+```bash
+docker compose up
+```
+
+Open `http://localhost:9876` — pgconsole connects to your database and you can browse schemas, run queries, and edit data immediately.
+
+## Kubernetes
+
+Deploy pgconsole as a Deployment with a ConfigMap for the configuration:
+
+```yaml pgconsole.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pgconsole-config
+data:
+  pgconsole.toml: |
+    [[connections]]
+    id = "main"
+    name = "Production PostgreSQL"
+    host = "postgres.default.svc.cluster.local"
+    port = 5432
+    database = "postgres"
+    username = "postgres"
+    password = "postgres"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgconsole
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pgconsole
+  template:
+    metadata:
+      labels:
+        app: pgconsole
+    spec:
+      containers:
+        - name: pgconsole
+          image: pgplex/pgconsole
+          ports:
+            - containerPort: 9876
+          volumeMounts:
+            - name: config
+              mountPath: /etc/pgconsole.toml
+              subPath: pgconsole.toml
+      volumes:
+        - name: config
+          configMap:
+            name: pgconsole-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pgconsole
+spec:
+  selector:
+    app: pgconsole
+  ports:
+    - port: 9876
+      targetPort: 9876
+```
+
+```bash
+kubectl apply -f pgconsole.yaml
+kubectl port-forward svc/pgconsole 9876:9876
+```
+
+Open `http://localhost:9876` to access pgconsole.
+
+To expose pgconsole externally with TLS, see [Kubernetes Ingress](/configuration/external-access#kubernetes-ingress) and [Kubernetes Gateway API](/configuration/external-access#kubernetes-gateway-api).
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="External Access" icon="globe" href="/configuration/external-access">
+    Expose pgconsole to your team
+  </Card>
+  <Card title="SQL Editor" icon="code" href="/features/sql-editor">
+    Autocomplete, formatting, inline editing, and more
+  </Card>
+</CardGroup>

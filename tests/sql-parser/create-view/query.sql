@@ -1,0 +1,1 @@
+CREATE OR REPLACE VIEW active_users AS SELECT id, name FROM users WHERE active = true
