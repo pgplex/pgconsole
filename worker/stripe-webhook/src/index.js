@@ -12,7 +12,7 @@ const RESEND_API_URL = 'https://api.resend.com/emails';
 
 // Keygen configuration
 const KEYGEN_API_URL = 'https://api.keygen.sh/v1/accounts/bytebase';
-const KEYGEN_POLICY_ID = '4dab58d1-e8eg-4faf-be96-4bf1fea52e50';
+const KEYGEN_POLICY_ID = '2ca585ae-4ba4-4ce9-9056-8d51ba55b50a';
 
 // Product configuration: productId -> planName
 const PRODUCTS = {
