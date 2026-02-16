@@ -9,6 +9,10 @@ name: Publish to Docker Hub
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Version tag (e.g. 1.2.0). If empty, only 'latest' is pushed."
+        required: false
   push:
     branches: [main]
     paths-ignore:
@@ -86,8 +90,12 @@ jobs:
           # Always include latest tag
           TAGS="${{ env.IMAGE_NAME }}:latest"
 
-          # Add version tag if version changed
-          if [[ "${{ steps.check-version.outputs.VERSION_CHANGED }}" == "true" ]]; then
+          # Add version tag: manual input takes precedence, then auto-detect from package.json
+          if [[ -n "${{ inputs.version }}" ]]; then
+            VERSION="${{ inputs.version }}"
+            TAGS="$TAGS,${{ env.IMAGE_NAME }}:$VERSION"
+            echo "Publishing with tags: latest, $VERSION (manual)"
+          elif [[ "${{ steps.check-version.outputs.VERSION_CHANGED }}" == "true" ]]; then
             VERSION="${{ steps.check-version.outputs.VERSION }}"
             TAGS="$TAGS,${{ env.IMAGE_NAME }}:$VERSION"
             echo "Publishing with tags: latest, $VERSION"
@@ -106,6 +114,6 @@ jobs:
           tags: ${{ steps.prep.outputs.TAGS }}
           build-args: |
             GIT_COMMIT=${{ github.sha }}
-            VERSION=${{ steps.check-version.outputs.VERSION }}
+            VERSION=${{ inputs.version || steps.check-version.outputs.VERSION }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
