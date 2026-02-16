@@ -67,8 +67,8 @@
   "navbar": {
     "links": [
       {
-        "label": "Pricing",
-        "href": "https://www.pgconsole.com/pricing"
+        "type": "github",
+        "href": "https://github.com/pgplex/pgconsole"
       }
     ],
     "primary": {
