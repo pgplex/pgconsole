@@ -7,14 +7,6 @@
   </a>
 </p>
 
-<a href="https://www.star-history.com/#pgplex/pgconsole&Date">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=pgplex/pgconsole&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=pgplex/pgconsole&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=pgplex/pgconsole&type=Date" />
- </picture>
-</a>
-
 `pgconsole` is web-based PostgreSQL editor. Single binary, single config file, no database required. Connect your team to PostgreSQL with access control and audit logging built in.
 
 ## Features
