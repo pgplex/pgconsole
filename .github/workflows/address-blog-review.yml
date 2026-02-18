@@ -1,0 +1,82 @@
+name: Address Blog Review
+
+on:
+  pull_request_review:
+    types: [submitted]
+    branches:
+      - 'blog/**'
+
+jobs:
+  address-review:
+    name: Address Review Comments
+    # Only run for reviews with comments, not plain approvals
+    if: github.event.review.state == 'commented' || github.event.review.state == 'changes_requested'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Address review comments
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          REVIEW_ID: ${{ github.event.review.id }}
+        run: |
+          claude --dangerously-skip-permissions -p "
+          You are addressing review comments on a blog post PR.
+
+          Context:
+          - Repository: $REPO
+          - PR number: $PR_NUMBER
+          - Review ID: $REVIEW_ID
+
+          Steps:
+          1. Fetch the review comments using: gh api repos/$REPO/pulls/$PR_NUMBER/comments
+             Filter to comments from review ID $REVIEW_ID.
+          2. Read the blog post file that was changed in this PR (check git diff --name-only to find it).
+          3. Read the write-blog-post skill in .claude/skills/write-blog-post/skill.md for style guidelines.
+          4. For each review comment, assess whether it is valid:
+             - Is it factually correct?
+             - Does it improve accuracy, clarity, or tone?
+             - Does it align with the writing style guidelines?
+          5. For valid comments: edit the blog post to address the feedback.
+          6. For invalid or subjective comments: prepare a brief explanation of why no change is needed.
+          7. Reply to EACH review comment using:
+             gh api repos/$REPO/pulls/$PR_NUMBER/comments/{comment_id}/replies -f body='...'
+             - If fixed: 'Fixed. [what was changed]'
+             - If rejected: 'Keeping as-is. [brief reason]'
+          8. Do NOT fabricate facts. If a review comment asks you to add information you cannot verify, say so in the reply.
+          "
+
+      - name: Check for changes
+        id: check
+        run: |
+          if git diff --quiet; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit and push changes
+        if: steps.check.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add website/content/blog/
+          git commit -m "blog: address review comments
+
+          Co-Authored-By: Claude <noreply@anthropic.com>"
+          git push
