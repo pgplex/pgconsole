@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next'
 import { getPosts } from '@/lib/blog'
 
-const BASE_URL = 'https://pgconsole.dev'
+const BASE_URL = 'https://www.pgconsole.com'
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const posts = getPosts()

@@ -29,7 +29,7 @@ export default function RootLayout({
         {children}
         <Script
           defer
-          data-domain="pgconsole.dev"
+          data-domain="pgconsole.com"
           src="https://plausible.io/js/pa-Nq602ndKUqnKATu5ioKYY.js"
           strategy="afterInteractive"
         />
