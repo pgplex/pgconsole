@@ -31,3 +31,20 @@
     }
   }
 }
+
+.prose code:not(pre code) {
+  background-color: var(--color-mist-200);
+  padding: 0.2em 0.4em;
+  border-radius: 0.25rem;
+  font-size: 0.875em;
+  font-weight: normal;
+
+  &::before,
+  &::after {
+    content: none !important;
+  }
+
+  .dark & {
+    background-color: var(--color-mist-800);
+  }
+}
