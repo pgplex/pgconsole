@@ -43,23 +43,11 @@ The feature was [first proposed in May 2022](https://www.postgresql.org/message-
 
 ## What the Previous Workaround Looked Like
 
-Without these commands, restructuring a live partitioned table required:
-
-1. `DETACH PARTITION` the source partition (acquires `ACCESS EXCLUSIVE` on parent)
-2. Create the replacement partition(s) as standalone tables
-3. `INSERT INTO new_part SELECT * FROM old_part WHERE ...` — full table scan, no lock, but can take hours
-4. `ALTER TABLE parent ATTACH PARTITION new_part FOR VALUES ...` (acquires `ACCESS EXCLUSIVE` again)
-5. `DROP TABLE old_part`
-
-Getting this wrong — a range overlap, a partition boundary off by one, a failed insert midway — left you with inconsistent state and data in limbo. For a table with active writes, timing the two `ACCESS EXCLUSIVE` windows was itself a planning exercise. Oracle DBAs migrating to PostgreSQL frequently hit this gap.
-
-## Locking Caveat
-
-The current implementation holds `ACCESS EXCLUSIVE` on the parent table for the entire operation, including the tuple routing phase. This means all reads and writes to the partitioned table are blocked while data moves between partitions. For small or infrequently accessed partitions — historical data, archive tables, staging partitions — this is fine. For large, heavily loaded partitions, it is not. The commit message describes this as "a quite naive implementation" and explicitly notes it as a foundation for future work with reduced locking and possible parallelism.
+Without these commands, restructuring a partition meant manually `DETACH`ing it, creating replacement tables, copying rows with `INSERT ... SELECT`, `ATTACH`ing each new partition, then dropping the old one — all while coordinating two separate `ACCESS EXCLUSIVE` lock windows on the parent. Getting a boundary wrong left data in limbo with no rollback path.
 
 ## Closing Thoughts
 
-`SPLIT PARTITION` and `MERGE PARTITIONS` close a long-standing gap in PostgreSQL's partitioning story. The manual DETACH/INSERT/ATTACH workaround worked, but it was fragile, slow, and required careful coordination around locks. Having DDL commands for these operations means partition restructuring is now a single statement, visible in `pg_dump`, and consistent with how every other schema change works in PostgreSQL.
+`SPLIT PARTITION` and `MERGE PARTITIONS` close a long-standing gap in PostgreSQL's partitioning story. The manual DETACH/INSERT/ATTACH workaround worked, but it was fragile, slow, and required careful coordination around locks. Having DDL commands for these operations means partition restructuring is now a single statement, visible in `pg_dump`, and consistent with how every other schema change works in PostgreSQL. One caveat: the current implementation holds `ACCESS EXCLUSIVE` for the entire operation including data movement, so it is not suited for large, actively written partitions — the commit message flags this as a foundation for future work with reduced locking.
 
 ## References
 
