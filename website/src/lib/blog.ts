@@ -1,3 +1,7 @@
+import fs from 'fs'
+import path from 'path'
+import matter from 'gray-matter'
+
 export interface BlogPost {
   slug: string
   title: string
@@ -6,20 +10,42 @@ export interface BlogPost {
   featured?: boolean
 }
 
-export const posts: BlogPost[] = [
-  {
-    slug: 'pgconsole-1-0',
-    title: 'Introducing pgconsole 1.0',
-    description:
-      'A self-hosted PostgreSQL editor with built-in access control, audit logging, and AI assistance — all from a single binary, and a TOML.',
-    date: '2025-06-01',
-    featured: true,
-  },
-  {
-    slug: 'pgconsole-1-1',
-    title: 'pgconsole 1.1: AI SQL assistant and more',
-    description:
-      'Generate, explain, fix, and rewrite SQL with AI providers you control. Plus new permission levels and schema caching.',
-    date: '2025-08-15',
-  },
-]
+const blogDir = path.join(process.cwd(), 'content/blog')
+
+export function formatDate(date: string) {
+  return new Date(date).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
+}
+
+export function getPost(slug: string): (BlogPost & { content: string }) | undefined {
+  const file = path.join(blogDir, `${slug}.md`)
+  if (!fs.existsSync(file)) return undefined
+  const { data, content } = matter(fs.readFileSync(file, 'utf-8'))
+  return {
+    slug,
+    title: data.title,
+    description: data.description,
+    date: data.date,
+    featured: data.featured,
+    content,
+  }
+}
+
+export function getPosts(): BlogPost[] {
+  const files = fs.readdirSync(blogDir).filter((f) => f.endsWith('.md'))
+  const posts = files.map((file) => {
+    const slug = file.replace(/\.md$/, '')
+    const { data } = matter(fs.readFileSync(path.join(blogDir, file), 'utf-8'))
+    return {
+      slug,
+      title: data.title,
+      description: data.description,
+      date: data.date,
+      featured: data.featured,
+    } as BlogPost
+  })
+  return posts.sort((a, b) => (a.date > b.date ? -1 : 1))
+}

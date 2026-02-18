@@ -9,11 +9,14 @@
     "start": "next start"
   },
   "dependencies": {
+    "@tailwindcss/typography": "^0.5.19",
     "@tailwindplus/elements": "0.0.0-insiders.98ea4bc",
     "clsx": "^2.1.1",
+    "gray-matter": "^4.0.3",
     "next": "^16",
     "react": "^19",
     "react-dom": "^19",
+    "react-markdown": "^10.1.0",
     "tailwindcss": "^4.1.18"
   },
   "devDependencies": {

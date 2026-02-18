@@ -5,19 +5,12 @@ import { Subheading } from '@/components/elements/subheading'
 import { Text } from '@/components/elements/text'
 import { Footer } from '@/components/shared/footer'
 import { Navbar } from '@/components/shared/navbar'
-import { posts } from '@/lib/blog'
-
-function formatDate(date: string) {
-  return new Date(date).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  })
-}
+import { formatDate, getPosts } from '@/lib/blog'
 
 export default function BlogPage() {
+  const posts = getPosts()
   const featured = posts.find((p) => p.featured)
-  const rest = posts.filter((p) => !p.featured)
+  const rest = posts.filter((p) => p !== featured)
 
   return (
     <>
