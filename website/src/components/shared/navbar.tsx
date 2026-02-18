@@ -19,6 +19,7 @@ export function Navbar() {
       links={
         <>
           <NavbarLink href="/pricing">Pricing</NavbarLink>
+          <NavbarLink href="/blog">Blog</NavbarLink>
           <NavbarLink href={LINKS.demo} target="_blank">
             Live demo 👈
           </NavbarLink>
