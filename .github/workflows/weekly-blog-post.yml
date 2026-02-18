@@ -1,0 +1,79 @@
+name: Weekly Blog Post
+
+on:
+  schedule:
+    # Every Monday at 09:00 UTC
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+
+jobs:
+  write-blog-post:
+    name: Write Blog Post
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Generate blog post
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          claude --dangerously-skip-permissions -p "
+          You are writing a blog post for the pgconsole website. Follow the write-blog-post skill in .claude/skills/write-blog-post/skill.md exactly, with one exception: since this is running in CI with no human to confirm topic selection, you must autonomously pick the best topic.
+
+          Steps:
+          1. Browse https://commitfest.postgresql.org/commitfest_history/ and https://pgpedia.info/postgresql-versions/ to find committed patches for the latest PostgreSQL version.
+          2. Check existing posts in website/content/blog/ to avoid duplicate topics.
+          3. Pick the single best topic — high impact, clear pain point, demonstrable with SQL examples.
+          4. Research the commit(s), pgsql-hackers mailing list threads, and real-world context.
+          5. Write the post to website/content/blog/{slug}.md following the structure, frontmatter, and writing style in the skill file.
+          6. Use today's date in the frontmatter.
+
+          Do NOT skip research. Every claim must be backed by a real commit hash and real mailing list link. Do NOT fabricate URLs.
+          "
+
+      - name: Check for new post
+        id: check
+        run: |
+          if git diff --quiet; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create Pull Request
+        if: steps.check.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="blog/weekly-$(date +%Y-%m-%d)"
+          git checkout -b "$BRANCH"
+          git add website/content/blog/
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "blog: add weekly blog post
+
+          Co-Authored-By: Claude <noreply@anthropic.com>"
+          git push -u origin "$BRANCH"
+          gh pr create \
+            --title "Blog: weekly post $(date +%Y-%m-%d)" \
+            --body "$(cat <<'EOF'
+          ## Summary
+
+          Weekly auto-generated blog post about a recent PostgreSQL feature.
+
+          **Please review for:**
+          - Factual accuracy (commit hashes, mailing list links)
+          - Writing quality and tone
+          - Technical correctness of SQL examples
+
+          🤖 Generated with [Claude Code](https://claude.com/claude-code)
+          EOF
+          )"
