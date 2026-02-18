@@ -1,5 +1,14 @@
 import { notFound } from 'next/navigation'
-import Markdown from 'react-markdown'
+import hljs from 'highlight.js/lib/core'
+import sql from 'highlight.js/lib/languages/sql'
+import toml from 'highlight.js/lib/languages/ini'
+import bash from 'highlight.js/lib/languages/bash'
+import MarkdownIt from 'markdown-it'
+import 'highlight.js/styles/github-dark-dimmed.css'
+
+hljs.registerLanguage('sql', sql)
+hljs.registerLanguage('toml', toml)
+hljs.registerLanguage('bash', bash)
 import { Container } from '@/components/elements/container'
 import { Eyebrow } from '@/components/elements/eyebrow'
 import { Main } from '@/components/elements/main'
@@ -30,6 +39,29 @@ function extractToc(markdown: string): TocEntry[] {
   return entries
 }
 
+const md = new MarkdownIt({
+  html: true,
+  linkify: true,
+  highlight: (str, lang) => {
+    if (lang && hljs.getLanguage(lang)) {
+      return hljs.highlight(str, { language: lang }).value
+    }
+    return ''
+  },
+})
+
+// Add id attributes to h2/h3 for TOC anchor links
+md.renderer.rules.heading_open = (tokens, idx) => {
+  const token = tokens[idx]
+  const tag = token.tag
+  if (tag === 'h2' || tag === 'h3') {
+    const content = tokens[idx + 1]?.children?.map((t) => t.content).join('') ?? ''
+    const id = slugify(content)
+    return `<${tag} id="${id}">`
+  }
+  return `<${tag}>`
+}
+
 export function generateStaticParams() {
   return getPosts().map((post) => ({ slug: post.slug }))
 }
@@ -40,6 +72,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   if (!post) notFound()
 
   const toc = extractToc(post.content)
+  const html = md.render(post.content)
 
   return (
     <>
@@ -61,16 +94,10 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
             </div>
 
             <div className="relative mt-8 flex gap-16">
-              <div className="prose prose-mist dark:prose-invert max-w-2xl min-w-0">
-                <Markdown
-                  components={{
-                    h2: ({ children }) => <h2 id={slugify(String(children))}>{children}</h2>,
-                    h3: ({ children }) => <h3 id={slugify(String(children))}>{children}</h3>,
-                  }}
-                >
-                  {post.content}
-                </Markdown>
-              </div>
+              <div
+                className="prose prose-mist dark:prose-invert max-w-2xl min-w-0"
+                dangerouslySetInnerHTML={{ __html: html }}
+              />
 
               {toc.length > 0 && (
                 <nav className="hidden lg:block">
