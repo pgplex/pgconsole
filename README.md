@@ -1,3 +1,6 @@
+> [!NOTE]
+> pgplex: Modern Developer Stack for Postgres - **pgconsole** · [pgtui](https://github.com/pgplex/pgtui) · [pgschema](https://github.com/pgplex/pgschema) · [pgparser](https://github.com/pgplex/pgparser)
+
 <p align="center">
   <a href="https://www.pgconsole.com">
     <picture>
@@ -7,7 +10,7 @@
   </a>
 </p>
 
-`pgconsole` is web-based PostgreSQL editor. Single binary, single config file, no database required. Connect your team to PostgreSQL with access control and audit logging built in.
+**pgconsole** is web-based PostgreSQL editor. Single binary, single config file, no database required. Connect your team to PostgreSQL with access control and audit logging built in.
 
 ## Features
 
