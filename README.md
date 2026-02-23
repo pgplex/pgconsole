@@ -10,6 +10,10 @@
   </a>
 </p>
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/pgplex/pgconsole/main/website/public/sql-editor-overview.webp" alt="pgconsole SQL editor" />
+</p>
+
 **pgconsole** is web-based PostgreSQL editor. Single binary, single config file, no database required. Connect your team to PostgreSQL with access control and audit logging built in.
 
 ## Features
