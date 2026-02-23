@@ -25,7 +25,7 @@ SELECT id FROM tags WHERE name = 'backend'
 LIMIT 1;
 ```
 
-This works, but it's fragile under concurrent load and requires PostgreSQL to execute an extra index scan on the conflict path. The other common alternative — `DO UPDATE SET name = EXCLUDED.name` — forces a write and bumps `xmax`, creating dead tuples for no reason. Neither approach is satisfying, and both have been widely discussed on Stack Overflow and the pgsql-hackers list for years.
+This works, but it's fragile under concurrent load and requires an extra index scan on the conflict path. The other common alternative — `DO UPDATE SET name = EXCLUDED.name` — forces a write and bumps `xmax`, creating dead tuples for no reason.
 
 ## The New Syntax
 
@@ -52,12 +52,26 @@ RETURNING id;
 
 `FOR SHARE` is also supported. The locking semantics match what you'd get from a standalone `SELECT ... FOR UPDATE` — the existing row is locked before being returned. This is useful when the returned ID feeds into a foreign-key insert that must not race with a concurrent delete.
 
+## Building on Postgres 18's RETURNING Enhancements
+
+`DO SELECT` isn't the only recent improvement to `RETURNING`. Postgres 18 — also by Dean Rasheed — added `OLD` and `NEW` aliases to the `RETURNING` clause in all DML statements (commit [80feb727](https://git.postgresql.org/pg/commitdiff/80feb727c869cc0b2e12bd1543bafa449be9c8e2)), so UPDATE and DELETE can now return both before and after values:
+
+```sql
+-- Postgres 18: see both before and after values
+UPDATE prices SET amount = amount * 1.1
+WHERE category = 'tools'
+RETURNING id, old.amount AS was, new.amount AS now;
+```
+
+For `INSERT ... ON CONFLICT DO UPDATE`, `OLD` gives you the pre-conflict row — the data that existed before the upsert overwrote it.
+
 ## Closing Thoughts
 
-`ON CONFLICT DO SELECT` solves a problem that has existed since upsert was introduced in PostgreSQL 9.5. The workarounds — CTEs, dummy updates, application-level retry loops — have been load-bearing hacks in production codebases for nearly a decade. ORMs like Django and ActiveRecord that generate get-or-create patterns can now target a single, semantically correct statement. The feature also works correctly with partitioned tables and row-level security, both of which were explicitly tested during the review cycle.
+`ON CONFLICT DO SELECT` solves a problem that has existed since upsert was introduced in PostgreSQL 9.5. The workarounds — CTEs, dummy updates, application-level retry loops — have been load-bearing hacks in production codebases for nearly a decade. ORMs like Django and ActiveRecord that generate get-or-create patterns can now target a single, semantically correct statement.
 
 ## References
 
 - [Postgres commit 88327092: Add support for INSERT ... ON CONFLICT DO SELECT](https://git.postgresql.org/pg/commitdiff/88327092ff06c48676d2a603420089bf493770f3)
+- [Postgres commit 80feb727: Add OLD/NEW support to RETURNING in DML queries](https://git.postgresql.org/pg/commitdiff/80feb727c869cc0b2e12bd1543bafa449be9c8e2)
 - [pgsql-hackers: INSERT ... ON CONFLICT DO SELECT [FOR ...] take 2](https://www.postgresql.org/message-id/2b5db2e6-8ece-44d0-9890-f256fdca9f7e@proxel.se)
 - [pgsql-hackers: ON CONFLICT DO SELECT (take 3)](https://www.postgresql.org/message-id/d631b406-13b7-433e-8c0b-c6040c4b4663@Spark)
