@@ -127,7 +127,7 @@ export function ConnectionSwitcher({ selectedConnectionId }: ConnectionSwitcherP
                 )}
               </div>
               <span className="text-xs text-muted-foreground whitespace-nowrap">
-                {currentConnection.host}:{currentConnection.port}/{currentConnection.database}
+                {currentConnection.username}@{currentConnection.host}:{currentConnection.port}/{currentConnection.database}
               </span>
             </div>
           ) : (
@@ -165,7 +165,7 @@ export function ConnectionSwitcher({ selectedConnectionId }: ConnectionSwitcherP
                 )}
               </div>
               <span className="text-muted-foreground">
-                {currentConnection.host}:{currentConnection.port}/{currentConnection.database}
+                {currentConnection.username}@{currentConnection.host}:{currentConnection.port}/{currentConnection.database}
               </span>
             </div>
           </TooltipPopup>
@@ -206,7 +206,7 @@ export function ConnectionSwitcher({ selectedConnectionId }: ConnectionSwitcherP
                 )}
               </div>
               <span className="text-xs text-muted-foreground">
-                {conn.host}:{conn.port}/{conn.database}
+                {conn.username}@{conn.host}:{conn.port}/{conn.database}
               </span>
             </div>
           </MenuItem>
