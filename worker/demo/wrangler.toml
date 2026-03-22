@@ -7,9 +7,17 @@ routes = [
 ]
 
 [[containers]]
-name = "PGCONSOLE_CONTAINER"
+class_name = "PgConsoleContainer"
 image = "pgplex/pgconsole:1.1.1"
 max_instances = 1
+
+[[durable_objects.bindings]]
+class_name = "PgConsoleContainer"
+name = "PGCONSOLE_CONTAINER"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["PgConsoleContainer"]
 
 [observability]
 enabled = true

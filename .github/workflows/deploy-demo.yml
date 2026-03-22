@@ -20,8 +20,10 @@ jobs:
         id: version
         run: echo "VERSION=$(jq -r .version package.json)" >> $GITHUB_OUTPUT
 
-      - name: Update image tag in wrangler.toml
-        run: sed -i "s|pgplex/pgconsole:[^ \"]*|pgplex/pgconsole:${{ steps.version.outputs.VERSION }}|" worker/demo/wrangler.toml
+      - name: Update image tag
+        run: |
+          sed -i "s|pgplex/pgconsole:[^ \"]*|pgplex/pgconsole:${{ steps.version.outputs.VERSION }}|" worker/demo/wrangler.toml
+          sed -i "s|pgplex/pgconsole:[^ \"]*|pgplex/pgconsole:${{ steps.version.outputs.VERSION }}|" worker/demo/src/index.ts
 
       - uses: pnpm/action-setup@v4
         with:
