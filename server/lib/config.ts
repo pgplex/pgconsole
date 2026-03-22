@@ -1,5 +1,5 @@
 import { parse } from 'smol-toml'
-import { readFileSync, existsSync } from 'fs'
+import { readFileSync } from 'fs'
 import { checkLicense } from './license'
 import { feature } from '../../src/lib/plan'
 import type { PlanTier } from '../../src/lib/plan'
@@ -108,13 +108,18 @@ function isValidHexColor(color: string): boolean {
 }
 
 export async function loadConfig(configPath: string): Promise<void> {
-  demoMode = false
-
-  if (!existsSync(configPath)) {
+  let content: string
+  try {
+    content = readFileSync(configPath, 'utf-8')
+  } catch {
     throw new Error(`Config file not found: ${configPath}\nSee https://docs.pgconsole.com/configuration/config`)
   }
+  return loadConfigFromString(content)
+}
 
-  const content = readFileSync(configPath, 'utf-8')
+export async function loadConfigFromString(content: string): Promise<void> {
+  demoMode = false
+
   const parsed = parse(content) as { general?: Record<string, unknown>, users?: unknown[], groups?: unknown[], labels?: unknown[], connections?: unknown[], auth?: Record<string, unknown>, ai?: Record<string, unknown> }
 
   // Parse [general] section

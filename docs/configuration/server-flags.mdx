@@ -7,7 +7,7 @@ title: Server Flags
 | Setting | Flag | Environment Variable | Default |
 |---------|------|---------------------|---------|
 | Port | `--port` | `PORT` | `9876` |
-| Config file | `--config` | — | Demo mode |
+| Config file | `--config` | `PGCONSOLE_CONFIG` | Demo mode |
 
 Command line flags take precedence over environment variables.
 
@@ -36,5 +36,5 @@ docker run -p 9876:9876 -e PGCONSOLE_CONFIG="$(cat /path/to/pgconsole.toml)" pgp
 ```
 
 <Info>
-`PGCONSOLE_CONFIG` is only available for Docker deployments. When set, its content is written to the config file at startup. This is useful for PaaS platforms where you cannot mount files and can only set environment variables.
+`PGCONSOLE_CONFIG` contains the full TOML configuration as a string. When set, pgconsole parses it directly instead of reading from a file. `--config` takes precedence over `PGCONSOLE_CONFIG`. This is useful for PaaS platforms (Railway, Cloudflare, etc.) where you cannot mount files.
 </Info>

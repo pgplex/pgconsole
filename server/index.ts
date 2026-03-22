@@ -3,7 +3,7 @@ import express from 'express'
 import cookieParser from 'cookie-parser'
 import { authRouter } from './auth-routes'
 import { connectRouter } from './connect'
-import { loadConfig, loadDemoConfig, isDemoMode, getBanner, getExternalUrl, getPlan, getLicenseExpiry, getUsers, getLicenseMaxUsers, getLicenseEmail } from './lib/config'
+import { loadConfig, loadConfigFromString, loadDemoConfig, isDemoMode, getBanner, getExternalUrl, getPlan, getLicenseExpiry, getUsers, getLicenseMaxUsers, getLicenseEmail } from './lib/config'
 import { startDemoDatabase, stopDemoDatabase } from './lib/demo'
 import { testAllConnections } from './lib/test-connections'
 import { feature } from '../src/lib/plan'
@@ -76,20 +76,24 @@ app.use((req, res, next) => {
 async function start() {
   const args = parseArgs()
   const port = args.port || process.env.PORT || 9876
-  // Start in demo mode if no --config was passed
-  if (!args.config) {
-    console.log('No --config specified — starting in demo mode...')
-    const demoPort = await startDemoDatabase()
-    loadDemoConfig(demoPort)
-    console.log(`✓ Demo database started on port ${demoPort}`)
-  } else {
+  if (args.config || process.env.PGCONSOLE_CONFIG) {
     try {
-      await loadConfig(args.config)
-      console.log(`✓ Loaded config from: ${path.resolve(args.config)}`)
+      if (args.config) {
+        await loadConfig(args.config)
+        console.log(`✓ Loaded config from: ${path.resolve(args.config)}`)
+      } else {
+        await loadConfigFromString(process.env.PGCONSOLE_CONFIG!)
+        console.log('✓ Loaded config from PGCONSOLE_CONFIG environment variable')
+      }
     } catch (error) {
       console.error('Failed to load config:', error instanceof Error ? error.message : error)
       process.exit(1)
     }
+  } else {
+    console.log('No --config specified — starting in demo mode...')
+    const demoPort = await startDemoDatabase()
+    loadDemoConfig(demoPort)
+    console.log(`✓ Demo database started on port ${demoPort}`)
   }
 
   // Check license expiration
