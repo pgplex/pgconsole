@@ -1,4 +1,4 @@
-name = "pgconsole-demo"
+name = "demo"
 main = "src/index.ts"
 compatibility_date = "2025-07-01"
 
@@ -7,17 +7,17 @@ routes = [
 ]
 
 [[containers]]
-class_name = "PgConsoleContainer"
+class_name = "PgConsole"
 image = "pgplex/pgconsole:1.1.1"
 max_instances = 1
 
 [[durable_objects.bindings]]
-class_name = "PgConsoleContainer"
+class_name = "PgConsole"
 name = "PGCONSOLE_CONTAINER"
 
 [[migrations]]
 tag = "v1"
-new_sqlite_classes = ["PgConsoleContainer"]
+new_sqlite_classes = ["PgConsole"]
 
 [observability]
 enabled = true

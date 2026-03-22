@@ -1,5 +1,5 @@
 {
-  "name": "pgconsole-demo",
+  "name": "demo",
   "private": true,
   "scripts": {
     "dev": "wrangler dev",
