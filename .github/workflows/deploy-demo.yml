@@ -22,15 +22,20 @@ jobs:
       - name: Update image tag in wrangler.toml
         run: sed -i "s|pgplex/pgconsole:[^ \"]*|pgplex/pgconsole:${{ steps.version.outputs.VERSION }}|" worker/demo/wrangler.toml
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
 
       - name: Install dependencies
-        run: npm install --prefix worker/demo
+        run: pnpm install --frozen-lockfile
+        working-directory: worker/demo
 
       - name: Deploy to Cloudflare
-        run: npx wrangler deploy
+        run: pnpm wrangler deploy
         working-directory: worker/demo
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
