@@ -6,10 +6,6 @@ interface Env {
 
 export class PgConsoleContainer extends Container {
   defaultPort = 9876;
-
-  override getContainerImage(): string {
-    return "docker.io/pgplex/pgconsole:1.1.1";
-  }
 }
 
 export default {
