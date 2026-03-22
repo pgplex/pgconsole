@@ -1,0 +1,16 @@
+name = "pgconsole-demo"
+main = "src/index.ts"
+compatibility_date = "2025-07-01"
+
+routes = [
+  { pattern = "demo.pgconsole.com", custom_domain = true }
+]
+
+[containers]
+name = "PGCONSOLE_CONTAINER"
+image = "pgplex/pgconsole:1.1.1"
+max_instances = 1
+
+[observability]
+enabled = true
+head_sampling_rate = 1

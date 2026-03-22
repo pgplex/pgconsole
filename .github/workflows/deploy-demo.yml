@@ -1,0 +1,30 @@
+name: Deploy Demo
+
+on:
+  workflow_run:
+    workflows: ["Publish to Docker Hub"]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get version from package.json
+        id: version
+        run: echo "VERSION=$(jq -r .version package.json)" >> $GITHUB_OUTPUT
+
+      - name: Update image tag in wrangler.toml
+        run: sed -i "s|pgplex/pgconsole:[^ \"]*|pgplex/pgconsole:${{ steps.version.outputs.VERSION }}|" worker/demo/wrangler.toml
+
+      - name: Deploy to Cloudflare
+        uses: cloudflare/wrangler-action@v3
+        with:
+          workingDirectory: worker/demo
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
