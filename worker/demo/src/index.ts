@@ -1,10 +1,10 @@
 import { Container } from "@cloudflare/containers";
 
 interface Env {
-  PGCONSOLE_CONTAINER: DurableObjectNamespace<PgConsole>;
+  PGCONSOLE_CONTAINER: DurableObjectNamespace<Demo>;
 }
 
-export class PgConsole extends Container {
+export class Demo extends Container {
   defaultPort = 9876;
 }
 
