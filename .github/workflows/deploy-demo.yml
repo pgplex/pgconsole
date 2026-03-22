@@ -2,7 +2,7 @@ name: Deploy Demo
 
 on:
   workflow_run:
-    workflows: ["Publish to Docker Hub"]
+    workflows: ["Publish"]
     types: [completed]
     branches: [main]
 

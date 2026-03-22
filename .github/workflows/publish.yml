@@ -1,0 +1,162 @@
+# Unified workflow for publishing pgconsole to Docker Hub and npm
+#
+# Docker: Always publishes 'latest' tag. Adds version tag when package.json version changes.
+# npm: Only publishes when version changes (or manual trigger). Uses OIDC trusted publishing.
+#
+# Prerequisites for npm OIDC: Configure trusted publisher at https://www.npmjs.com/package/@pgplex/pgconsole/access
+#   - Workflow filename: publish.yml
+
+name: Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version tag (e.g. 1.2.0). If empty, auto-detected from package.json."
+        required: false
+      npm_tag:
+        description: "NPM tag (e.g., latest, beta). Only used for npm publish."
+        required: false
+        default: "latest"
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "website/**"
+      - "worker/**"
+
+env:
+  IMAGE_NAME: pgplex/pgconsole
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.check.outputs.VERSION }}
+      version_changed: ${{ steps.check.outputs.VERSION_CHANGED }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect version change
+        id: check
+        run: |
+          git show HEAD:package.json > package.json.current
+          git show HEAD~1:package.json > package.json.previous 2>/dev/null || cp package.json.current package.json.previous
+
+          CURRENT=$(jq -r '.version' package.json.current)
+          PREVIOUS=$(jq -r '.version' package.json.previous)
+
+          echo "Current: $CURRENT, Previous: $PREVIOUS"
+          echo "VERSION=$CURRENT" >> $GITHUB_OUTPUT
+
+          if [ "$CURRENT" != "$PREVIOUS" ]; then
+            echo "VERSION_CHANGED=true" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION_CHANGED=false" >> $GITHUB_OUTPUT
+          fi
+
+  docker:
+    needs: check-version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Prepare tags
+        id: prep
+        run: |
+          TAGS="${{ env.IMAGE_NAME }}:latest"
+
+          if [[ -n "${{ inputs.version }}" ]]; then
+            VERSION="${{ inputs.version }}"
+            TAGS="$TAGS,${{ env.IMAGE_NAME }}:$VERSION"
+            echo "Publishing with tags: latest, $VERSION (manual)"
+          elif [[ "${{ needs.check-version.outputs.version_changed }}" == "true" ]]; then
+            VERSION="${{ needs.check-version.outputs.version }}"
+            TAGS="$TAGS,${{ env.IMAGE_NAME }}:$VERSION"
+            echo "Publishing with tags: latest, $VERSION"
+          else
+            echo "Publishing with tag: latest only"
+          fi
+
+          echo "TAGS=$TAGS" >> $GITHUB_OUTPUT
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.prep.outputs.TAGS }}
+          build-args: |
+            GIT_COMMIT=${{ github.sha }}
+            VERSION=${{ inputs.version || needs.check-version.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  npm:
+    needs: check-version
+    if: inputs.version || needs.check-version.outputs.version_changed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Upgrade npm
+        run: |
+          npm install -g npm@latest
+          echo "npm version: $(npm --version)"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Prepare and publish
+        run: |
+          VERSION="${{ inputs.version || needs.check-version.outputs.version }}"
+
+          # Check if already published
+          if npm view @pgplex/pgconsole@${VERSION} version &> /dev/null; then
+            echo "Version ${VERSION} already exists on npm. Skipping."
+            exit 0
+          fi
+
+          # Determine npm tag
+          if [[ -n "${{ inputs.npm_tag }}" && "${{ inputs.npm_tag }}" != "latest" ]]; then
+            TAG="${{ inputs.npm_tag }}"
+          elif [[ "${VERSION}" == *"-"* ]]; then
+            TAG=$(echo "${VERSION}" | cut -d'-' -f2 | cut -d'.' -f1)
+          else
+            TAG="latest"
+          fi
+
+          echo "Publishing @pgplex/pgconsole@${VERSION} with tag ${TAG}"
+
+          # Prepare package.json for npm
+          jq --arg v "$VERSION" \
+            '.name = "@pgplex/pgconsole" | .version = $v | del(.private) | .files = ["dist/**/*", "LICENSE", "README.md"] | .bin = {"pgconsole": "dist/server.mjs"}' \
+            package.json > package.json.tmp
+          mv package.json.tmp package.json
+
+          npm publish --access public --tag "$TAG"
