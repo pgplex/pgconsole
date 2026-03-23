@@ -1,10 +1,12 @@
+import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronDown, Database, AlertCircle } from 'lucide-react'
+import { ChevronDown, Database, AlertCircle, Loader2, Activity } from 'lucide-react'
 import { Tooltip, TooltipTrigger, TooltipPopup } from './ui/tooltip'
-import { Menu, MenuTrigger, MenuPopup, MenuItem } from './ui/menu'
+import { Menu, MenuTrigger, MenuPopup, MenuItem, MenuSeparator } from './ui/menu'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { useConnections, useConnectionHealth } from '../hooks/useQuery'
+import { connectionClient } from '../lib/connect-client'
 import { useSession } from '../lib/auth-client'
 
 const PERMISSION_VARIANTS: Record<string, 'default' | 'warning' | 'info' | 'muted' | 'success' | 'secondary' | 'outline'> = {
@@ -36,6 +38,39 @@ export function ConnectionSwitcher({ selectedConnectionId }: ConnectionSwitcherP
   // Test current connection health
   const { data: healthCheck } = useConnectionHealth(selectedConnectionId, !!selectedConnectionId)
   const isConnectionDown = healthCheck && !healthCheck.success
+
+  const [pingResults, setPingResults] = useState<Record<string, { loading: boolean; latencyMs?: number; error?: string }>>({})
+  const isPinging = Object.values(pingResults).some((r) => r.loading)
+
+  const handlePing = useCallback(() => {
+    if (!connections || isPinging) return
+    const initial: Record<string, { loading: boolean }> = {}
+    for (const conn of connections) {
+      initial[conn.id] = { loading: true }
+    }
+    setPingResults(initial)
+
+    for (const conn of connections) {
+      connectionClient.testConnection({ id: conn.id }).then(
+        (response) => {
+          setPingResults((prev) => ({
+            ...prev,
+            [conn.id]: {
+              loading: false,
+              latencyMs: response.success ? response.latencyMs : undefined,
+              error: response.error || undefined,
+            },
+          }))
+        },
+        (err) => {
+          setPingResults((prev) => ({
+            ...prev,
+            [conn.id]: { loading: false, error: err instanceof Error ? err.message : 'Unknown error' },
+          }))
+        },
+      )
+    }
+  }, [connections, isPinging])
 
   const currentConnection = connections?.find((c) => c.id === selectedConnectionId)
 
@@ -172,45 +207,75 @@ export function ConnectionSwitcher({ selectedConnectionId }: ConnectionSwitcherP
         )}
       </Tooltip>
       <MenuPopup>
-        {connections.map((conn) => (
-          <MenuItem
-            key={conn.id}
-            onClick={() => navigate(`/?connectionId=${conn.id}`)}
-            className={selectedConnectionId === conn.id ? 'bg-gray-100' : ''}
-          >
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center gap-1.5">
-                <span className="text-sm font-medium">{conn.name}</span>
-                {conn.labels && conn.labels.length > 0 && (
-                  <div className="flex gap-1 flex-wrap">
-                    {conn.labels.map((label) => (
-                      <Badge
-                        key={label.id}
-                        size="sm"
-                        variant="outline"
-                        style={{ borderColor: label.color, color: label.color }}
-                      >
-                        {label.name}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-                {authEnabled && conn.permissions.length > 0 && (
-                  <div className="flex gap-1 flex-wrap">
-                    {sortPermissions(conn.permissions).map((perm) => (
-                      <Badge key={perm} size="sm" variant={PERMISSION_VARIANTS[perm] ?? 'muted'}>
-                        {perm}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
+        <MenuItem closeOnClick={false} onClick={handlePing} disabled={isPinging}>
+          {isPinging ? <Loader2 size={14} className="animate-spin" /> : <Activity size={14} />}
+          <span>Ping</span>
+        </MenuItem>
+        <MenuSeparator />
+        {connections.map((conn) => {
+          const ping = pingResults[conn.id]
+          return (
+            <MenuItem
+              key={conn.id}
+              onClick={() => navigate(`/?connectionId=${conn.id}`)}
+              className={selectedConnectionId === conn.id ? 'bg-gray-100' : ''}
+            >
+              <div className="flex flex-col gap-1 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-medium">{conn.name}</span>
+                  {conn.labels && conn.labels.length > 0 && (
+                    <div className="flex gap-1 flex-wrap">
+                      {conn.labels.map((label) => (
+                        <Badge
+                          key={label.id}
+                          size="sm"
+                          variant="outline"
+                          style={{ borderColor: label.color, color: label.color }}
+                        >
+                          {label.name}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  {authEnabled && conn.permissions.length > 0 && (
+                    <div className="flex gap-1 flex-wrap">
+                      {sortPermissions(conn.permissions).map((perm) => (
+                        <Badge key={perm} size="sm" variant={PERMISSION_VARIANTS[perm] ?? 'muted'}>
+                          {perm}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  {ping && (
+                    <span className="ml-auto pl-2 shrink-0">
+                      {ping.loading ? (
+                        <Loader2 size={14} className="animate-spin text-muted-foreground" />
+                      ) : ping.error ? (
+                        <Tooltip>
+                          <TooltipTrigger
+                            render={
+                              <span className="flex items-center">
+                                <AlertCircle size={14} className="text-red-500" />
+                              </span>
+                            }
+                          />
+                          <TooltipPopup side="right" className="z-[100]">
+                            <span className="text-xs">{ping.error}</span>
+                          </TooltipPopup>
+                        </Tooltip>
+                      ) : (
+                        <span className="text-xs text-green-600">{ping.latencyMs}ms</span>
+                      )}
+                    </span>
+                  )}
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  {conn.username}@{conn.host}:{conn.port}/{conn.database}
+                </span>
               </div>
-              <span className="text-xs text-muted-foreground">
-                {conn.username}@{conn.host}:{conn.port}/{conn.database}
-              </span>
-            </div>
-          </MenuItem>
-        ))}
+            </MenuItem>
+          )
+        })}
       </MenuPopup>
     </Menu>
   )
