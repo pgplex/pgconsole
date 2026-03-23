@@ -201,6 +201,86 @@ Open `http://localhost:9876` to access pgconsole.
 
 To expose pgconsole externally with TLS, see [Kubernetes Ingress](/configuration/external-access#kubernetes-ingress) and [Kubernetes Gateway API](/configuration/external-access#kubernetes-gateway-api).
 
+## Cloudflare
+
+pgconsole can run on Cloudflare using [Containers](https://developers.cloudflare.com/containers/) — our own [demo.pgconsole.com](https://demo.pgconsole.com) is deployed this way.
+
+### Prerequisites
+
+- A Cloudflare account with Containers enabled
+- [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/) installed
+
+### Project setup
+
+Create a new directory for your worker:
+
+```bash
+mkdir pgconsole-worker && cd pgconsole-worker
+npm init -y
+npm install --save-dev wrangler @cloudflare/containers
+```
+
+### Worker code
+
+```typescript src/index.ts
+import { Container } from "@cloudflare/containers";
+
+interface Env {
+  PGCONSOLE_CONTAINER: DurableObjectNamespace<pgconsole>;
+}
+
+export class pgconsole extends Container {
+  defaultPort = 9876;
+}
+
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const id = env.PGCONSOLE_CONTAINER.idFromName("default");
+    const stub = env.PGCONSOLE_CONTAINER.get(id);
+    return stub.fetch(request);
+  },
+};
+```
+
+### Wrangler configuration
+
+```toml wrangler.toml
+name = "pgconsole"
+main = "src/index.ts"
+compatibility_date = "2025-07-01"
+
+routes = [
+  { pattern = "pgconsole.example.com", custom_domain = true }
+]
+
+[[containers]]
+class_name = "pgconsole"
+image = "pgplex/pgconsole:<version>"
+max_instances = 1
+
+[[durable_objects.bindings]]
+class_name = "pgconsole"
+name = "PGCONSOLE_CONTAINER"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["pgconsole"]
+```
+
+Replace `pgconsole.example.com` with your domain. To connect to your own database, mount a config file in the container or use the demo mode image as-is.
+
+### Deploy
+
+Push the Docker image to the Cloudflare container registry and deploy the worker:
+
+```bash
+# Cloudflare Containers requires an explicit version tag — `latest` is not supported
+npx wrangler containers push pgplex/pgconsole:<version>
+npx wrangler deploy
+```
+
+Your pgconsole instance is now live at your configured domain.
+
 ## Next steps
 
 <CardGroup cols={2}>
