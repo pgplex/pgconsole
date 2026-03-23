@@ -125,6 +125,8 @@ function AppLayout() {
                     tables={navigation.tables}
                     isSchemasLoading={navigation.isSchemasLoading}
                     isTablesLoading={navigation.isTablesLoading}
+                    isSchemasRefetching={navigation.isSchemasRefetching}
+                    isTablesRefetching={navigation.isTablesRefetching}
                     schemasError={navigation.schemasError}
                     tablesError={navigation.tablesError}
                   />

@@ -15,10 +15,12 @@ interface UseEditorNavigationResult {
   // Resolved state (with defaults applied)
   schema: string | null
   object: SelectedObject | null
-  // Loading states
+  // Loading/fetching states
   isLoading: boolean
   isSchemasLoading: boolean
   isTablesLoading: boolean
+  isSchemasRefetching: boolean
+  isTablesRefetching: boolean
   // Error states
   schemasError: Error | null
   tablesError: Error | null
@@ -42,6 +44,7 @@ export function useEditorNavigation(connectionId: string): UseEditorNavigationRe
   const {
     data: schemas = [],
     isLoading: isSchemasLoading,
+    isFetching: isSchemasFetching,
     error: schemasError,
   } = useSchemas(connectionId)
 
@@ -56,6 +59,7 @@ export function useEditorNavigation(connectionId: string): UseEditorNavigationRe
   const {
     data: tables = [],
     isLoading: isTablesLoading,
+    isFetching: isTablesFetching,
     error: tablesError,
   } = useTables(connectionId, effectiveSchema || '')
 
@@ -205,6 +209,8 @@ export function useEditorNavigation(connectionId: string): UseEditorNavigationRe
     isLoading: isSchemasLoading || isTablesLoading,
     isSchemasLoading,
     isTablesLoading,
+    isSchemasRefetching: isSchemasFetching && !isSchemasLoading,
+    isTablesRefetching: isTablesFetching && !isTablesLoading,
     schemasError: schemasError as Error | null,
     tablesError: tablesError as Error | null,
     schemas,

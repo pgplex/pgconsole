@@ -24,6 +24,8 @@ interface ObjectSidebarProps {
   tables: Array<{ name: string; type: string }>
   isSchemasLoading: boolean
   isTablesLoading: boolean
+  isSchemasRefetching: boolean
+  isTablesRefetching: boolean
   schemasError: Error | null
   tablesError: Error | null
 }
@@ -42,6 +44,8 @@ export function ObjectSidebar({
   tables,
   isSchemasLoading,
   isTablesLoading,
+  isSchemasRefetching,
+  isTablesRefetching,
   schemasError,
   tablesError,
 }: ObjectSidebarProps) {
@@ -52,9 +56,11 @@ export function ObjectSidebar({
   const { mutate: refreshSchemaCache } = useRefreshSchemaCache()
 
   // Fetch materialized views, functions, and procedures
-  const { data: materializedViewsData = [], isLoading: mvLoading, error: mvError, refetch: refetchMaterializedViews } = useMaterializedViews(connectionId, selectedSchema || '')
-  const { data: functionsData = [], isLoading: functionsLoading, error: functionsError, refetch: refetchFunctions } = useFunctions(connectionId, selectedSchema || '')
-  const { data: proceduresData = [], isLoading: proceduresLoading, error: proceduresError, refetch: refetchProcedures } = useProcedures(connectionId, selectedSchema || '')
+  const { data: materializedViewsData = [], isLoading: mvLoading, error: mvError, refetch: refetchMaterializedViews, isFetching: mvFetching } = useMaterializedViews(connectionId, selectedSchema || '')
+  const { data: functionsData = [], isLoading: functionsLoading, error: functionsError, refetch: refetchFunctions, isFetching: fnFetching } = useFunctions(connectionId, selectedSchema || '')
+  const { data: proceduresData = [], isLoading: proceduresLoading, error: proceduresError, refetch: refetchProcedures, isFetching: procFetching } = useProcedures(connectionId, selectedSchema || '')
+
+  const isRefreshing = isSchemasRefetching || isTablesRefetching || mvFetching || fnFetching || procFetching
 
   // Separate tables and views
   const tablesList = tables.filter(t => t.type === 'table')
@@ -99,8 +105,9 @@ export function ObjectSidebar({
                   size="icon-sm"
                   className="shrink-0"
                   onClick={handleRefresh}
+                  disabled={isRefreshing}
                 >
-                  <RefreshCw className="h-2 w-2" />
+                  <RefreshCw className={`h-2 w-2 ${isRefreshing ? 'animate-spin' : ''}`} />
                 </Button>
               }
             />

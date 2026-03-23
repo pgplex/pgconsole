@@ -24,6 +24,8 @@ interface SQLEditorLayoutProps {
   tables: Array<{ name: string; type: string }>
   isSchemasLoading: boolean
   isTablesLoading: boolean
+  isSchemasRefetching: boolean
+  isTablesRefetching: boolean
   schemasError: Error | null
   tablesError: Error | null
 }
@@ -47,6 +49,8 @@ export function SQLEditorLayout({
   tables,
   isSchemasLoading,
   isTablesLoading,
+  isSchemasRefetching,
+  isTablesRefetching,
   schemasError,
   tablesError,
 }: SQLEditorLayoutProps) {
@@ -365,6 +369,8 @@ export function SQLEditorLayout({
           tables={tables}
           isSchemasLoading={isSchemasLoading}
           isTablesLoading={isTablesLoading}
+          isSchemasRefetching={isSchemasRefetching}
+          isTablesRefetching={isTablesRefetching}
           schemasError={schemasError}
           tablesError={tablesError}
         />
