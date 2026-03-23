@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, memo, useRef, useCallback } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { ChevronLeft, ChevronRight, Clipboard, Download, MoreHorizontal, X, Expand, Plus, Pin } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Clipboard, Download, MoreHorizontal, X, Expand, Plus, Pin, ArrowUp, ArrowDown } from 'lucide-react'
 import { Spinner } from '../ui/spinner'
 import { TabBar } from '../ui/tab-bar'
 import { SearchInput } from '../ui/search-input'
@@ -218,10 +218,22 @@ interface ResultContentProps {
   isExplainResult: boolean
 }
 
+type SortState = { column: string; direction: 'asc' | 'desc' } | null
+
 function ResultContent({ result, filter, allDisplayRows, displayRows, selectedRowIndex, onRowClick, onRowDoubleClick, onExpandJson, selectedIndices, onRowSelect, onDeleteRows, onDuplicateRows, onDiscardRows, onPinRows, onUnpinRows, onRowHover, hasWrite, isExplainResult }: ResultContentProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; rowIndex: number; rowStatus: RowStatus } | null>(null)
+  const [sort, setSort] = useState<SortState>(null)
+
+  const handleHeaderClick = useCallback((columnName: string) => {
+    setSort(prev => {
+      if (prev?.column !== columnName) return { column: columnName, direction: 'asc' }
+      if (prev.direction === 'asc') return { column: columnName, direction: 'desc' }
+      return null
+    })
+    setCurrentPage(1)
+  }, [])
 
   // Close context menu on click outside
   useEffect(() => {
@@ -303,11 +315,40 @@ function ResultContent({ result, filter, allDisplayRows, displayRows, selectedRo
     setCurrentPage(1)
   }, [filter])
 
+  const sortedDisplayRows = useMemo(() => {
+    if (!sort) return displayRows
+    const col = sort.column
+    const dir = sort.direction === 'asc' ? 1 : -1
+    const colMeta = result.columns.find(c => c.name === col)
+    const pgType = colMeta?.type?.toLowerCase().replace(/\(.*\)/, '') ?? ''
+
+    const isNumeric = /^(int[248]?|smallint|bigint|float[48]?|real|double precision|numeric|decimal|oid|serial|bigserial|smallserial)$/.test(pgType)
+    const isBool = pgType === 'bool' || pgType === 'boolean'
+    const isDate = /^(date|timestamp|timestamptz|timestamp with(out)? time zone|time|timetz)$/.test(pgType)
+
+    return [...displayRows].sort((a, b) => {
+      const av = a.data[col]
+      const bv = b.data[col]
+      if (av == null && bv == null) return 0
+      if (av == null) return 1
+      if (bv == null) return -1
+
+      if (isNumeric) return (Number(av) - Number(bv)) * dir
+      if (isBool) return ((av === true ? 1 : 0) - (bv === true ? 1 : 0)) * dir
+      if (isDate) {
+        const ta = new Date(String(av)).getTime()
+        const tb = new Date(String(bv)).getTime()
+        if (!isNaN(ta) && !isNaN(tb)) return (ta - tb) * dir
+      }
+      return String(av).localeCompare(String(bv)) * dir
+    })
+  }, [displayRows, sort, result.columns])
+
   // Get rows for current page
   const pageStartIndex = (currentPage - 1) * ROWS_PER_PAGE
   const paginatedRows = useMemo(() => {
-    return displayRows.slice(pageStartIndex, pageStartIndex + ROWS_PER_PAGE)
-  }, [displayRows, pageStartIndex])
+    return sortedDisplayRows.slice(pageStartIndex, pageStartIndex + ROWS_PER_PAGE)
+  }, [sortedDisplayRows, pageStartIndex])
 
   const virtualizer = useVirtualizer({
     count: paginatedRows.length,
@@ -329,8 +370,8 @@ function ResultContent({ result, filter, allDisplayRows, displayRows, selectedRo
     const MAX = 400
 
     return result.columns.map((col) => {
-      // Header: 1.2x multiplier for canvas vs browser font rendering differences
-      const headerWidth = Math.ceil(measureText(col.name, HEADER_FONT) * 1.2) + PADDING
+      // Header: 1.2x multiplier for canvas vs browser font rendering differences + 14px for sort icon
+      const headerWidth = Math.ceil(measureText(col.name, HEADER_FONT) * 1.2) + PADDING + 14
 
       // Content: sample first 200 rows
       let contentWidth = 0
@@ -392,9 +433,15 @@ function ResultContent({ result, filter, allDisplayRows, displayRows, selectedRo
           {result.columns.map((col) => (
             <Tooltip key={col.name}>
               <TooltipTrigger
-                className="w-full px-2 py-1.5 text-xs font-medium text-gray-700 truncate border-r border-gray-200 last:border-r-0 text-left"
+                className="w-full px-2 py-1.5 text-xs font-medium text-gray-700 truncate border-r border-gray-200 last:border-r-0 text-left flex items-center gap-0.5 cursor-pointer hover:bg-gray-100"
+                onClick={() => handleHeaderClick(col.name)}
               >
-                {col.name}
+                <span className="truncate">{col.name}</span>
+                {sort?.column === col.name && (
+                  sort.direction === 'asc'
+                    ? <ArrowUp className="w-3 h-3 shrink-0 text-blue-600" />
+                    : <ArrowDown className="w-3 h-3 shrink-0 text-blue-600" />
+                )}
               </TooltipTrigger>
               <TooltipContent side="bottom" sideOffset={4}>
                 <span>{col.type || 'unknown'}</span>
