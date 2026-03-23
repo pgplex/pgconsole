@@ -68,6 +68,7 @@
     "links": [
       {
         "type": "github",
+        "label": "pgplex/pgconsole",
         "href": "https://github.com/pgplex/pgconsole"
       }
     ],
