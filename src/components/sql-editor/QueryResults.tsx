@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, memo, useRef, useCallback } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { ChevronLeft, ChevronRight, Clipboard, Download, MoreHorizontal, X, Expand, Plus, Pin } from 'lucide-react'
+import { Spinner } from '../ui/spinner'
 import { TabBar } from '../ui/tab-bar'
 import { SearchInput } from '../ui/search-input'
 import { Button } from '../ui/button'
@@ -1329,27 +1330,32 @@ export function QueryResults({
     }).catch(() => {})
   }, [activeResult, displayRows, connectionId])
 
-  // Only show "Executing query..." if there are no results yet
-  // If results exist, show them even if isExecuting is true (avoids timing issues)
+  const executingContent = isExecuting && (
+    <>
+      <Spinner className="w-5 h-5 text-gray-400" />
+      <div className="text-sm text-gray-500">
+        Executing query...{elapsedTime >= 1 && ` (${elapsedTime.toFixed(1)}s)`}
+        {executingPid && <span className="ml-2 text-gray-400">PID {executingPid}</span>}
+      </div>
+      {elapsedTime >= 1 && onCancelQuery && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onCancelQuery}
+          disabled={isCancelling}
+          className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
+        >
+          <X className="w-3 h-3 mr-1" />
+          {isCancelling ? 'Cancelling...' : 'Cancel'}
+        </Button>
+      )}
+    </>
+  )
+
   if (isExecuting && resultTabs.length === 0) {
     return (
       <div className="h-full flex flex-col items-center justify-center gap-3">
-        <div className="text-sm text-gray-500">
-          Executing query...{elapsedTime >= 1 && ` (${elapsedTime.toFixed(1)}s)`}
-          {executingPid && <span className="ml-2 text-gray-400">PID {executingPid}</span>}
-        </div>
-        {elapsedTime >= 1 && onCancelQuery && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onCancelQuery}
-            disabled={isCancelling}
-            className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
-          >
-            <X className="w-3 h-3 mr-1" />
-            {isCancelling ? 'Cancelling...' : 'Cancel'}
-          </Button>
-        )}
+        {executingContent}
       </div>
     )
   }
@@ -1365,6 +1371,11 @@ export function QueryResults({
 
   return (
     <div className="h-full flex flex-col relative">
+      {isExecuting && (
+        <div className="absolute inset-0 z-40 bg-white/60 backdrop-blur-[1px] flex flex-col items-center justify-center gap-3">
+          {executingContent}
+        </div>
+      )}
       {/* Staged changes buttons - above tabs */}
       {hasStagedChanges && (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 p-1.5 bg-white/80 backdrop-blur-sm rounded-lg shadow-sm border border-gray-200/50 text-xs">
