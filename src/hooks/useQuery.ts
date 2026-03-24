@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { queryClient, connectionClient, aiClient } from '../lib/connect-client';
 import type { ColumnMetadata } from '../components/sql-editor/hooks/useEditorTabs';
 
@@ -21,6 +21,15 @@ export const queryKeys = {
   functionDependencies: (connectionId: string, schema: string, name: string, args?: string) => [...queryKeys.all, 'functionDependencies', connectionId, schema, name, args] as const,
   processes: (connectionId: string) => [...queryKeys.all, 'processes', connectionId] as const,
 };
+
+export function invalidateSchemaQueries(qc: QueryClient, connectionId: string) {
+  qc.invalidateQueries({
+    predicate: (query) => {
+      const key = query.queryKey
+      return Array.isArray(key) && key[0] === 'query' && key[1] !== 'processes' && key.includes(connectionId)
+    },
+  })
+}
 
 export const connectionKeys = {
   all: ['connections'] as const,

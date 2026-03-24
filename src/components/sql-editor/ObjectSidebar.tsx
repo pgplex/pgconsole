@@ -6,7 +6,7 @@ import { SchemaSelector } from './SchemaSelector'
 import { ObjectTree, type ObjectType } from './ObjectTree'
 import { Button } from '../ui/button'
 import { Tooltip, TooltipTrigger, TooltipContent } from '../ui/tooltip'
-import { useMaterializedViews, useFunctions, useProcedures, useRefreshSchemaCache, queryKeys, connectionKeys } from '../../hooks/useQuery'
+import { useMaterializedViews, useFunctions, useProcedures, useRefreshSchemaCache, invalidateSchemaQueries, connectionKeys } from '../../hooks/useQuery'
 import type { SelectedObject } from './SQLEditorLayout'
 
 interface ObjectSidebarProps {
@@ -56,9 +56,9 @@ export function ObjectSidebar({
   const { mutate: refreshSchemaCache } = useRefreshSchemaCache()
 
   // Fetch materialized views, functions, and procedures
-  const { data: materializedViewsData = [], isLoading: mvLoading, error: mvError, refetch: refetchMaterializedViews, isFetching: mvFetching } = useMaterializedViews(connectionId, selectedSchema || '')
-  const { data: functionsData = [], isLoading: functionsLoading, error: functionsError, refetch: refetchFunctions, isFetching: fnFetching } = useFunctions(connectionId, selectedSchema || '')
-  const { data: proceduresData = [], isLoading: proceduresLoading, error: proceduresError, refetch: refetchProcedures, isFetching: procFetching } = useProcedures(connectionId, selectedSchema || '')
+  const { data: materializedViewsData = [], isLoading: mvLoading, error: mvError, isFetching: mvFetching } = useMaterializedViews(connectionId, selectedSchema || '')
+  const { data: functionsData = [], isLoading: functionsLoading, error: functionsError, isFetching: fnFetching } = useFunctions(connectionId, selectedSchema || '')
+  const { data: proceduresData = [], isLoading: proceduresLoading, error: proceduresError, isFetching: procFetching } = useProcedures(connectionId, selectedSchema || '')
 
   const isRefreshing = isSchemasRefetching || isTablesRefetching || mvFetching || fnFetching || procFetching
 
@@ -73,14 +73,7 @@ export function ObjectSidebar({
   const errorMessage = schemasError?.message || tablesError?.message || mvError?.message || functionsError?.message || proceduresError?.message
 
   const handleRefresh = () => {
-    // Invalidate queries to trigger refetch
-    queryClient.invalidateQueries({ queryKey: queryKeys.schemas(connectionId) })
-    if (selectedSchema) {
-      queryClient.invalidateQueries({ queryKey: queryKeys.tables(connectionId, selectedSchema) })
-    }
-    refetchMaterializedViews()
-    refetchFunctions()
-    refetchProcedures()
+    invalidateSchemaQueries(queryClient, connectionId)
     // Also refresh connection health indicator
     queryClient.invalidateQueries({ queryKey: [...connectionKeys.all, 'health', connectionId] })
     // Also refresh AI schema cache

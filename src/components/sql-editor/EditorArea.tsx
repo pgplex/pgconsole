@@ -14,7 +14,7 @@ import type { useEditorTabs, QueryResult } from './hooks/useEditorTabs'
 import type { SelectedObject } from './SQLEditorLayout'
 import type { ObjectType } from './ObjectTree'
 import { useQueryClient } from '@tanstack/react-query'
-import { useExecuteSQL, useCancelQuery } from '../../hooks/useQuery'
+import { useExecuteSQL, useCancelQuery, invalidateSchemaQueries } from '../../hooks/useQuery'
 import { useConnectionPermissions } from '../../hooks/usePermissions'
 import { getEditorInfo, formatSql, formatSqlOneLine, parseSql, isDDLStatement } from '@/lib/sql'
 import { aiClient } from '@/lib/connect-client'
@@ -228,14 +228,7 @@ export function EditorArea({ editorTabs, connectionId, selectedSchema, rightPane
 
       // Refresh schema if any DDL statement executed successfully
       if (ddlExecutedSuccessfully) {
-        // Invalidate all schema-related queries for this connection
-        // Using predicate to match all queries containing this connectionId
-        queryClient.invalidateQueries({
-          predicate: (query) => {
-            const key = query.queryKey
-            return Array.isArray(key) && key[0] === 'query' && key.includes(connectionId)
-          },
-        })
+        invalidateSchemaQueries(queryClient, connectionId)
       }
     } catch (err) {
       // If something went wrong before results could be set, show error and clear executing state
