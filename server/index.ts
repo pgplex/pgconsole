@@ -106,6 +106,12 @@ async function start() {
     }
   }
 
+  // Log plan and user seat info
+  const plan = getPlan()
+  const maxUsers = getLicenseMaxUsers()
+  const userCount = getUsers().length
+  console.log(`✓ Plan: ${plan}, User seat: ${userCount}/${maxUsers}`)
+
   // Test all connections to populate cache
   try {
     await testAllConnections()
