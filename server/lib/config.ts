@@ -65,6 +65,11 @@ export interface BannerConfig {
   color?: string
 }
 
+export interface BrandingConfig {
+  logo?: string
+  logo_link?: string
+}
+
 export interface GroupConfig {
   id: string
   name: string
@@ -83,6 +88,7 @@ interface Config {
   external_url?: string
   license?: string
   banner?: BannerConfig
+  branding?: BrandingConfig
   users: UserConfig[]
   groups: GroupConfig[]
   labels: LabelConfig[]
@@ -98,7 +104,7 @@ interface Config {
 
 const validSslModes = ['disable', 'prefer', 'require', 'verify-full']
 
-const DEFAULT_CONFIG: Config = { users: [], groups: [], labels: [], connections: [], auth: undefined, ai: undefined, banner: undefined, license: undefined, iam: [], plan: 'FREE', licenseExpiry: undefined, licenseMaxUsers: 1, licenseEmail: undefined }
+const DEFAULT_CONFIG: Config = { users: [], groups: [], labels: [], connections: [], auth: undefined, ai: undefined, banner: undefined, branding: undefined, license: undefined, iam: [], plan: 'FREE', licenseExpiry: undefined, licenseMaxUsers: 1, licenseEmail: undefined }
 
 let loadedConfig: Config = { ...DEFAULT_CONFIG }
 let demoMode = false
@@ -120,7 +126,7 @@ export async function loadConfig(configPath: string): Promise<void> {
 export async function loadConfigFromString(content: string): Promise<void> {
   demoMode = false
 
-  const parsed = parse(content) as { general?: Record<string, unknown>, users?: unknown[], groups?: unknown[], labels?: unknown[], connections?: unknown[], auth?: Record<string, unknown>, ai?: Record<string, unknown> }
+  const parsed = parse(content) as { general?: Record<string, unknown>, branding?: Record<string, unknown>, users?: unknown[], groups?: unknown[], labels?: unknown[], connections?: unknown[], auth?: Record<string, unknown>, ai?: Record<string, unknown> }
 
   // Parse [general] section
   let external_url: string | undefined = undefined
@@ -182,6 +188,49 @@ export async function loadConfigFromString(content: string): Promise<void> {
 
         banner = bannerConfig
       }
+    }
+  }
+
+  // Parse [branding] section
+  let branding: BrandingConfig | undefined = undefined
+  if (parsed.branding) {
+    const b = parsed.branding
+    const brandingConfig: BrandingConfig = {}
+
+    if (b.logo !== undefined) {
+      if (typeof b.logo !== 'string') {
+        throw new Error('branding.logo must be a string')
+      }
+      try {
+        new URL(b.logo)
+      } catch {
+        throw new Error(`branding.logo is not a valid URL: ${b.logo}`)
+      }
+      brandingConfig.logo = b.logo
+    }
+
+    if (b.logo_link !== undefined) {
+      if (typeof b.logo_link !== 'string') {
+        throw new Error('branding.logo_link must be a string')
+      }
+      if (b.logo_link.startsWith('/')) {
+        brandingConfig.logo_link = b.logo_link
+      } else {
+        try {
+          const parsed = new URL(b.logo_link)
+          if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+            throw new Error(`branding.logo_link must use http or https: ${b.logo_link}`)
+          }
+        } catch (e) {
+          if (e instanceof Error && e.message.startsWith('branding.')) throw e
+          throw new Error(`branding.logo_link is not a valid URL: ${b.logo_link}`)
+        }
+        brandingConfig.logo_link = b.logo_link
+      }
+    }
+
+    if (brandingConfig.logo) {
+      branding = brandingConfig
     }
   }
 
@@ -573,7 +622,7 @@ export async function loadConfigFromString(content: string): Promise<void> {
     licenseEmail = result.email
   }
 
-  loadedConfig = { external_url, license, banner, users, groups, labels, connections, auth, ai, iam, plan, licenseExpiry, licenseMaxUsers, licenseEmail }
+  loadedConfig = { external_url, license, banner, branding, users, groups, labels, connections, auth, ai, iam, plan, licenseExpiry, licenseMaxUsers, licenseEmail }
 
   // Validate user count against license limit
   if (auth) {
@@ -639,6 +688,10 @@ export function getExternalUrl(): string | undefined {
 
 export function getBanner(): BannerConfig | undefined {
   return loadedConfig.banner
+}
+
+export function getBranding(): BrandingConfig | undefined {
+  return loadedConfig.branding
 }
 
 export function getAIConfig(): AIConfig | undefined {

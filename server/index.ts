@@ -3,7 +3,7 @@ import express from 'express'
 import cookieParser from 'cookie-parser'
 import { authRouter } from './auth-routes'
 import { connectRouter } from './connect'
-import { loadConfig, loadConfigFromString, loadDemoConfig, isDemoMode, getBanner, getExternalUrl, getPlan, getLicenseExpiry, getUsers, getLicenseMaxUsers, getLicenseEmail } from './lib/config'
+import { loadConfig, loadConfigFromString, loadDemoConfig, isDemoMode, getBanner, getBranding, getExternalUrl, getPlan, getLicenseExpiry, getUsers, getLicenseMaxUsers, getLicenseEmail } from './lib/config'
 import { startDemoDatabase, stopDemoDatabase } from './lib/demo'
 import { testAllConnections } from './lib/test-connections'
 import { feature } from '../src/lib/plan'
@@ -41,6 +41,7 @@ app.get('/api/setting', (_req, res) => {
   const plan = getPlan()
   res.json({
     banner: feature('BANNER', plan) ? getBanner() : undefined,
+    branding: feature('BRANDING', plan) ? getBranding() : undefined,
     plan,
     licenseExpiry: getLicenseExpiry(),
     licenseEmail: getLicenseEmail(),

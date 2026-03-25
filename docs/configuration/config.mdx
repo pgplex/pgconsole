@@ -34,6 +34,10 @@ text = "System maintenance scheduled for Sunday 2am UTC"
 link = "https://status.example.com"
 color = "#7c3aed"
 
+[branding]
+logo = "https://example.com/your-logo.svg"
+logo_link = "https://internal.example.com"
+
 [[labels]]
 id = "prod"
 name = "Production"
@@ -155,6 +159,23 @@ Optional banner displayed at the top of the page. The banner cannot be dismissed
 text = "System maintenance scheduled for Sunday 2am UTC"
 link = "https://status.example.com"
 color = "#7c3aed"
+```
+
+## Branding
+
+Replace the pgconsole logo with your own. Requires an [Enterprise license](/configuration/license).
+
+| Field | Description | Required |
+|-------|-------------|----------|
+| `logo` | URL to your logo image | Yes |
+| `logo_link` | Where the logo links to (absolute path or `http(s)` URL) | |
+
+When `logo_link` is omitted, the logo links to `/`.
+
+```toml pgconsole.toml
+[branding]
+logo = "https://example.com/your-logo.svg"
+logo_link = "https://internal.example.com"
 ```
 
 ## Labels

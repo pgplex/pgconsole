@@ -5,6 +5,7 @@ import { Menu, MenuTrigger, MenuPopup, MenuItem } from './ui/menu';
 import { useSession, signOut } from '@/lib/auth-client';
 import { useSubscriptionModal } from '@/hooks/useSubscriptionModal';
 import { useOwner } from '@/hooks/useOwner';
+import { useSetting } from '@/hooks/useSetting';
 import UserAvatar from './UserAvatar';
 import logoFull from '@/assets/logo-light-full.svg';
 
@@ -17,6 +18,7 @@ export default function Header({ selectedConnectionId }: HeaderProps) {
   const { user, authEnabled } = useSession();
   const subscriptionModal = useSubscriptionModal();
   const isOwner = useOwner();
+  const { branding } = useSetting();
 
   const isGuest = user?.email === 'guest';
   const showSignIn = !user && authEnabled;
@@ -31,13 +33,22 @@ export default function Header({ selectedConnectionId }: HeaderProps) {
       <ConnectionSwitcher selectedConnectionId={selectedConnectionId} />
 
       <div className="flex items-center gap-1.5">
-        <button
-          onClick={() => window.open('https://docs.pgconsole.com', '_blank')}
-          className="flex items-center justify-center hover:opacity-80"
-          aria-label="Documentation"
-        >
-          <img src={logoFull} alt="pgconsole docs" className="h-7.5" />
-        </button>
+        {branding?.logo ? (
+          <a
+            href={branding.logo_link || '/'}
+            className="flex items-center justify-center hover:opacity-80"
+          >
+            <img src={branding.logo} alt="Logo" className="h-7.5" />
+          </a>
+        ) : (
+          <button
+            onClick={() => window.open('https://docs.pgconsole.com', '_blank')}
+            className="flex items-center justify-center hover:opacity-80"
+            aria-label="Documentation"
+          >
+            <img src={logoFull} alt="pgconsole docs" className="h-7.5" />
+          </button>
+        )}
 
         {user && !isGuest ? (
           <Menu>

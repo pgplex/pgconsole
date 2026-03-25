@@ -15,6 +15,15 @@
 # color = "#7c3aed"  # Optional
 
 # =============================================================================
+# Branding (Enterprise only)
+# =============================================================================
+# Replace the pgconsole logo with your own. Requires an Enterprise license.
+#
+# [branding]
+# logo = "https://example.com/your-logo.svg"
+# logo_link = "https://internal.example.com"   # Optional - where the logo links to (default: /)
+
+# =============================================================================
 # AI providers for Text-to-SQL (optional)
 # =============================================================================
 # Supported vendors: openai, anthropic, google

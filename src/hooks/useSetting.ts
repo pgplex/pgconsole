@@ -7,7 +7,13 @@ interface BannerConfig {
   color?: string
 }
 
+interface BrandingConfig {
+  logo?: string
+  logo_link?: string
+}
+
 interface SettingResponse {
+  branding?: BrandingConfig
   banner?: BannerConfig
   plan: PlanTier
   licenseExpiry?: number
@@ -28,6 +34,7 @@ export function useSetting() {
   })
 
   return {
+    branding: data?.branding,
     banner: data?.banner,
     plan: data?.plan ?? 'FREE',
     licenseExpiry: data?.licenseExpiry,
