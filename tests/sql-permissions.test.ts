@@ -172,10 +172,9 @@ describe('detectRequiredPermissions', () => {
     expect(transactionSafe).toBe(false)
   })
 
-  it('returns admin for unparseable SQL', async () => {
-    const { permissions, transactionSafe } = await detectRequiredPermissions('THIS IS NOT VALID SQL !!!')
-    expect(permissions).toEqual(new Set(['admin']))
-    expect(transactionSafe).toBe(false)
+  it('throws for unparseable SQL', async () => {
+    await expect(detectRequiredPermissions('THIS IS NOT VALID SQL !!!'))
+      .rejects.toThrow('SQL syntax error')
   })
 
   it('returns read for empty SQL', async () => {

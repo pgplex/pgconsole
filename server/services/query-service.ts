@@ -151,7 +151,12 @@ export const queryServiceHandlers: ServiceImpl<typeof QueryService> = {
     }
 
     // Determine required permissions and statement analysis
-    const analysis = await detectRequiredPermissions(req.sql);
+    let analysis: Awaited<ReturnType<typeof detectRequiredPermissions>>;
+    try {
+      analysis = await detectRequiredPermissions(req.sql);
+    } catch (err) {
+      throw new ConnectError(err instanceof Error ? err.message : String(err), Code.InvalidArgument);
+    }
     requirePermissions(user, req.connectionId, analysis.permissions, `execute query`);
 
     const details = getConnectionDetails(req.connectionId);

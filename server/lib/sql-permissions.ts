@@ -234,8 +234,8 @@ export async function detectRequiredPermissions(sql: string): Promise<SqlAnalysi
     }
 
     return { permissions, statementCount: parsed.statements.length, transactionSafe }
-  } catch {
-    // Parse failed - require admin for safety
-    return { permissions: new Set(['admin']), statementCount: 1, transactionSafe: false }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    throw new Error(`SQL syntax error: ${message}`)
   }
 }
