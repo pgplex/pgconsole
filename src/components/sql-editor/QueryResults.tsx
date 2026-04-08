@@ -197,11 +197,14 @@ function Pagination({
   )
 }
 
+type SortState = { column: string; direction: 'asc' | 'desc' } | null
+
 interface ResultContentProps {
   result: QueryResult
   filter: string
   allDisplayRows: DisplayRow[]
   displayRows: DisplayRow[]
+  canonicalIndexMap: Map<DisplayRow, number>
   selectedRowIndex: number | null
   onRowClick: (rowIndex: number, row: Record<string, unknown>, column?: string) => void
   onRowDoubleClick: (rowIndex: number, row: Record<string, unknown>, column: string) => void
@@ -216,24 +219,23 @@ interface ResultContentProps {
   onRowHover: (rowIndex: number | null) => void
   hasWrite: boolean
   isExplainResult: boolean
+  sort: SortState
+  onSortChange: (sort: SortState) => void
 }
 
-type SortState = { column: string; direction: 'asc' | 'desc' } | null
-
-function ResultContent({ result, filter, allDisplayRows, displayRows, selectedRowIndex, onRowClick, onRowDoubleClick, onExpandJson, selectedIndices, onRowSelect, onDeleteRows, onDuplicateRows, onDiscardRows, onPinRows, onUnpinRows, onRowHover, hasWrite, isExplainResult }: ResultContentProps) {
+function ResultContent({ result, filter, allDisplayRows, displayRows, canonicalIndexMap, selectedRowIndex, onRowClick, onRowDoubleClick, onExpandJson, selectedIndices, onRowSelect, onDeleteRows, onDuplicateRows, onDiscardRows, onPinRows, onUnpinRows, onRowHover, hasWrite, isExplainResult, sort, onSortChange }: ResultContentProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; rowIndex: number; rowStatus: RowStatus } | null>(null)
-  const [sort, setSort] = useState<SortState>(null)
 
   const handleHeaderClick = useCallback((columnName: string) => {
-    setSort(prev => {
-      if (prev?.column !== columnName) return { column: columnName, direction: 'asc' }
-      if (prev.direction === 'asc') return { column: columnName, direction: 'desc' }
-      return null
-    })
+    onSortChange(
+      sort?.column !== columnName ? { column: columnName, direction: 'asc' }
+      : sort.direction === 'asc' ? { column: columnName, direction: 'desc' }
+      : null
+    )
     setCurrentPage(1)
-  }, [])
+  }, [sort, onSortChange])
 
   // Close context menu on click outside
   useEffect(() => {
@@ -315,40 +317,11 @@ function ResultContent({ result, filter, allDisplayRows, displayRows, selectedRo
     setCurrentPage(1)
   }, [filter])
 
-  const sortedDisplayRows = useMemo(() => {
-    if (!sort) return displayRows
-    const col = sort.column
-    const dir = sort.direction === 'asc' ? 1 : -1
-    const colMeta = result.columns.find(c => c.name === col)
-    const pgType = colMeta?.type?.toLowerCase().replace(/\(.*\)/, '') ?? ''
-
-    const isNumeric = /^(int[248]?|smallint|bigint|float[48]?|real|double precision|numeric|decimal|oid|serial|bigserial|smallserial)$/.test(pgType)
-    const isBool = pgType === 'bool' || pgType === 'boolean'
-    const isDate = /^(date|timestamp|timestamptz|timestamp with(out)? time zone|time|timetz)$/.test(pgType)
-
-    return [...displayRows].sort((a, b) => {
-      const av = a.data[col]
-      const bv = b.data[col]
-      if (av == null && bv == null) return 0
-      if (av == null) return 1
-      if (bv == null) return -1
-
-      if (isNumeric) return (Number(av) - Number(bv)) * dir
-      if (isBool) return ((av === true ? 1 : 0) - (bv === true ? 1 : 0)) * dir
-      if (isDate) {
-        const ta = new Date(String(av)).getTime()
-        const tb = new Date(String(bv)).getTime()
-        if (!isNaN(ta) && !isNaN(tb)) return (ta - tb) * dir
-      }
-      return String(av).localeCompare(String(bv)) * dir
-    })
-  }, [displayRows, sort, result.columns])
-
   // Get rows for current page
   const pageStartIndex = (currentPage - 1) * ROWS_PER_PAGE
   const paginatedRows = useMemo(() => {
-    return sortedDisplayRows.slice(pageStartIndex, pageStartIndex + ROWS_PER_PAGE)
-  }, [sortedDisplayRows, pageStartIndex])
+    return displayRows.slice(pageStartIndex, pageStartIndex + ROWS_PER_PAGE)
+  }, [displayRows, pageStartIndex])
 
   const virtualizer = useVirtualizer({
     count: paginatedRows.length,
@@ -562,7 +535,7 @@ function ResultContent({ result, filter, allDisplayRows, displayRows, selectedRo
         >
           {virtualizer.getVirtualItems().map((virtualRow) => {
             const displayRow = paginatedRows[virtualRow.index]
-            const globalRowIndex = pageStartIndex + virtualRow.index + 1
+            const globalRowIndex = canonicalIndexMap.get(displayRow) ?? (pageStartIndex + virtualRow.index + 1)
             const { data, status, originalData } = displayRow
             const isSelected = selectedIndices.has(globalRowIndex) || selectedRowIndex === globalRowIndex
             const isStagedInsert = status === 'staged-insert'
@@ -755,7 +728,7 @@ export function QueryResults({
   const [debouncedFilter, setDebouncedFilter] = useState('')
   const [elapsedTime, setElapsedTime] = useState(0)
   const [selectedRow, setSelectedRow] = useState<{
-    index: number
+    displayRow: DisplayRow | null  // null for pending new rows not yet in displayRows
     data: Record<string, unknown>
     column?: string
   } | null>(null)
@@ -793,9 +766,6 @@ export function QueryResults({
     return () => clearTimeout(timer)
   }, [filterInput])
 
-  // Track previous selected row index to detect row changes
-  const prevSelectedIndexRef = useRef<number | null>(null)
-
   // Clear UI state when active result changes (but not displayRows — those are per-tab)
   useEffect(() => {
     setSelectedRow(null)
@@ -803,30 +773,31 @@ export function QueryResults({
     setIsEditingRow(false)
     setAutoEditColumn(null)
     setPendingNewRow(null)
-    prevSelectedIndexRef.current = null
+    setSort(null)
   }, [activeResultTabId])
 
   // Exit edit mode when switching to a different row (but not for pending new rows)
+  const prevSelectedRowRef = useRef<DisplayRow | null>(null)
   useEffect(() => {
-    const currentIndex = selectedRow?.index ?? null
-    const prevIndex = prevSelectedIndexRef.current
+    const currentRow = selectedRow?.displayRow ?? null
+    const prevRow = prevSelectedRowRef.current
 
-    // If row index changed and we were on a different row before, exit edit mode
+    // If row changed and we were on a different row before, exit edit mode
     // But skip this for pending new rows (add/duplicate) which should stay in edit mode
-    if (prevIndex !== null && currentIndex !== null && prevIndex !== currentIndex && !pendingNewRow) {
+    if (prevRow !== null && currentRow !== null && prevRow !== currentRow && !pendingNewRow) {
       setIsEditingRow(false)
       setAutoEditColumn(null)
     }
 
-    prevSelectedIndexRef.current = currentIndex
-  }, [selectedRow?.index, pendingNewRow])
+    prevSelectedRowRef.current = currentRow
+  }, [selectedRow?.displayRow, pendingNewRow])
 
   // Space key to toggle pin on selected or hovered row
   useKeyboardShortcut(
     'toggle-row-pin',
     ' ',
     () => {
-      const targetIndex = selectedRow?.index ?? hoveredRowIndex
+      const targetIndex = selectedCanonicalIndex ?? hoveredRowIndex
       if (targetIndex === null) return
       const row = displayRows[targetIndex - 1]
       if (!row) return
@@ -904,6 +875,57 @@ export function QueryResults({
       })
     )
   }, [displayRows, debouncedFilter, activeResult])
+
+  const [sort, setSort] = useState<SortState>(null)
+
+  const visualRows = useMemo(() => {
+    if (!sort || !activeResult) return filteredDisplayRows
+    const col = sort.column
+    const dir = sort.direction === 'asc' ? 1 : -1
+    const colMeta = activeResult.result.columns.find(c => c.name === col)
+    const pgType = colMeta?.type?.toLowerCase().replace(/\(.*\)/, '') ?? ''
+
+    const isNumeric = /^(int[248]?|smallint|bigint|float[48]?|real|double precision|numeric|decimal|oid|serial|bigserial|smallserial)$/.test(pgType)
+    const isBool = pgType === 'bool' || pgType === 'boolean'
+    const isDate = /^(date|timestamp|timestamptz|timestamp with(out)? time zone|time|timetz)$/.test(pgType)
+
+    return [...filteredDisplayRows].sort((a, b) => {
+      const av = a.data[col]
+      const bv = b.data[col]
+      if (av == null && bv == null) return 0
+      if (av == null) return 1
+      if (bv == null) return -1
+
+      if (isNumeric) return (Number(av) - Number(bv)) * dir
+      if (isBool) return ((av === true ? 1 : 0) - (bv === true ? 1 : 0)) * dir
+      if (isDate) {
+        const ta = new Date(String(av)).getTime()
+        const tb = new Date(String(bv)).getTime()
+        if (!isNaN(ta) && !isNaN(tb)) return (ta - tb) * dir
+      }
+      return String(av).localeCompare(String(bv)) * dir
+    })
+  }, [filteredDisplayRows, sort, activeResult])
+
+  const canonicalIndexMap = useMemo(() => {
+    const map = new Map<DisplayRow, number>()
+    displayRows.forEach((row, idx) => map.set(row, idx + 1))
+    return map
+  }, [displayRows])
+
+  const visualIndexMap = useMemo(() => {
+    const map = new Map<DisplayRow, number>()
+    visualRows.forEach((row, idx) => map.set(row, idx + 1))
+    return map
+  }, [visualRows])
+
+  const selectedVisualIndex = selectedRow?.displayRow
+    ? (visualIndexMap.get(selectedRow.displayRow) ?? null)
+    : null
+
+  const selectedCanonicalIndex = selectedRow?.displayRow
+    ? (canonicalIndexMap.get(selectedRow.displayRow) ?? null)
+    : null
 
   // Staged changes modal
   const [previewModalOpen, setPreviewModalOpen] = useState(false)
@@ -1084,14 +1106,16 @@ export function QueryResults({
       return
     }
 
-    const idx = selectedRow.index - 1
-    const row = displayRows[idx]
+    if (!selectedRow.displayRow) return
+    const canonIdx = canonicalIndexMap.get(selectedRow.displayRow)
+    if (canonIdx === undefined) return
+    const row = displayRows[canonIdx - 1]
     if (!row) return
 
     const originalData = row.originalData || row.data
-    setDisplayRows(prev => updateRow(prev, idx, { data: updatedRow, status: 'staged-update', originalData }))
+    setDisplayRows(prev => updateRow(prev, canonIdx - 1, { data: updatedRow, status: 'staged-update', originalData }))
     setIsEditingRow(false)
-  }, [selectedRow, displayRows, pendingNewRow])
+  }, [selectedRow, displayRows, pendingNewRow, canonicalIndexMap])
 
   const handleDuplicateSelection = useCallback((indices: number[]) => {
     if (!activeResult || indices.length !== 1) return
@@ -1111,7 +1135,7 @@ export function QueryResults({
       ?? activeResult.result.columns[0]
 
     setPendingNewRow(newData)
-    setSelectedRow({ index: displayRows.length + 1, data: newData })
+    setSelectedRow({ displayRow: null, data: newData })
     setDrawerOpen(true)
     setIsEditingRow(true)
     setAutoEditColumn(firstFocusableCol?.name ?? null)
@@ -1133,12 +1157,12 @@ export function QueryResults({
       ?? activeResult.result.columns[0]
 
     setPendingNewRow(newData)
-    setSelectedRow({ index: displayRows.length + 1, data: newData })
+    setSelectedRow({ displayRow: null, data: newData })
     setDrawerOpen(true)
     setIsEditingRow(true)
     setAutoEditColumn(firstFocusableCol?.name ?? null)
     selectionRef.current?.clearSelection()
-  }, [activeResult, displayRows])
+  }, [activeResult])
 
   const selection = useRowSelection({
     totalRows: displayRows.length,
@@ -1149,11 +1173,10 @@ export function QueryResults({
   selectionRef.current = selection
 
   // Row navigation: j/ArrowDown = next, k/ArrowUp = previous
-  // When no row is selected, first keypress selects the hovered row
-  const selectRowAt = useCallback((index: number) => {
+  const selectRowByCanonicalIndex = useCallback((index: number) => {
     const row = displayRows[index - 1]
     if (!row) return
-    setSelectedRow({ index, data: row.data })
+    setSelectedRow({ displayRow: row, data: row.data })
     selection.handleRowClick(index, { shiftKey: false, metaKey: false, ctrlKey: false })
   }, [displayRows, selection])
 
@@ -1164,7 +1187,7 @@ export function QueryResults({
       if (selectedRow) {
         handlePreviousRow()
       } else if (hoveredRowIndex !== null) {
-        selectRowAt(hoveredRowIndex)
+        selectRowByCanonicalIndex(hoveredRowIndex)
       }
     },
     { when: () => (selectedRow !== null || hoveredRowIndex !== null) && !isEditingRow }
@@ -1177,7 +1200,7 @@ export function QueryResults({
       if (selectedRow) {
         handleNextRow()
       } else if (hoveredRowIndex !== null) {
-        selectRowAt(hoveredRowIndex)
+        selectRowByCanonicalIndex(hoveredRowIndex)
       }
     },
     { when: () => (selectedRow !== null || hoveredRowIndex !== null) && !isEditingRow }
@@ -1261,7 +1284,7 @@ export function QueryResults({
     }
 
     // Update selectedRow data if it's the same row
-    if (selectedRow?.index === jsonModal.rowIndex) {
+    if (selectedRow && selectedRow.displayRow === row) {
       setSelectedRow({ ...selectedRow, data: updatedData })
     }
   }, [jsonModal, displayRows, selectedRow, pendingNewRow])
@@ -1269,23 +1292,26 @@ export function QueryResults({
   const handleRowClick = useCallback((rowIndex: number, row: Record<string, unknown>, column?: string) => {
     // Don't open detail panel for EXPLAIN results
     if (isExplainResult) return
-    setSelectedRow({ index: rowIndex, data: row, column })
+    const dr = displayRows[rowIndex - 1]
+    if (!dr) return
+    setSelectedRow({ displayRow: dr, data: row, column })
     setDrawerOpen(true)
-  }, [isExplainResult])
+  }, [isExplainResult, displayRows])
 
   const handleRowDoubleClick = useCallback((rowIndex: number, row: Record<string, unknown>, column: string) => {
     // Don't do anything for EXPLAIN results
     if (isExplainResult) return
-    const displayRow = displayRows[rowIndex - 1]
+    const dr = displayRows[rowIndex - 1]
+    if (!dr) return
     // Check if row is already staged or user lacks write permission - if so, don't auto-enter edit mode
-    if (!hasWrite || (displayRow && displayRow.status !== 'normal')) {
+    if (!hasWrite || dr.status !== 'normal') {
       // Just open the panel normally, don't enter edit mode
-      setSelectedRow({ index: rowIndex, data: row, column })
+      setSelectedRow({ displayRow: dr, data: row, column })
       setDrawerOpen(true)
       return
     }
     // Open panel, enter edit mode, and set column to focus
-    setSelectedRow({ index: rowIndex, data: row, column })
+    setSelectedRow({ displayRow: dr, data: row, column })
     setDrawerOpen(true)
     setIsEditingRow(true)
     setAutoEditColumn(column)
@@ -1311,24 +1337,24 @@ export function QueryResults({
   }, [])
 
   const handlePreviousRow = useCallback(() => {
-    if (!selectedRow || selectedRow.index <= 1) return
-    const newIndex = selectedRow.index - 1
-    const newDisplayRow = displayRows[newIndex - 1]
-    if (newDisplayRow) {
-      setSelectedRow({ index: newIndex, data: newDisplayRow.data })
-      selection.handleRowClick(newIndex, { shiftKey: false, metaKey: false, ctrlKey: false })
+    if (!selectedRow || selectedVisualIndex === null || selectedVisualIndex <= 1) return
+    const prev = visualRows[selectedVisualIndex - 2]
+    if (prev) {
+      setSelectedRow({ displayRow: prev, data: prev.data })
+      const canonIdx = canonicalIndexMap.get(prev)
+      if (canonIdx !== undefined) selection.handleRowClick(canonIdx, { shiftKey: false, metaKey: false, ctrlKey: false })
     }
-  }, [selectedRow, displayRows, selection])
+  }, [selectedRow, selectedVisualIndex, visualRows, canonicalIndexMap, selection])
 
   const handleNextRow = useCallback(() => {
-    if (!selectedRow || selectedRow.index >= displayRows.length) return
-    const newIndex = selectedRow.index + 1
-    const newDisplayRow = displayRows[newIndex - 1]
-    if (newDisplayRow) {
-      setSelectedRow({ index: newIndex, data: newDisplayRow.data })
-      selection.handleRowClick(newIndex, { shiftKey: false, metaKey: false, ctrlKey: false })
+    if (!selectedRow || selectedVisualIndex === null || selectedVisualIndex >= visualRows.length) return
+    const next = visualRows[selectedVisualIndex]
+    if (next) {
+      setSelectedRow({ displayRow: next, data: next.data })
+      const canonIdx = canonicalIndexMap.get(next)
+      if (canonIdx !== undefined) selection.handleRowClick(canonIdx, { shiftKey: false, metaKey: false, ctrlKey: false })
     }
-  }, [selectedRow, displayRows, selection])
+  }, [selectedRow, selectedVisualIndex, visualRows, canonicalIndexMap, selection])
 
   const handleCopyAsMarkdown = useCallback(async () => {
     if (!activeResult) return
@@ -1501,8 +1527,9 @@ export function QueryResults({
             result={activeResult.result}
             filter={debouncedFilter}
             allDisplayRows={displayRows}
-            displayRows={filteredDisplayRows}
-            selectedRowIndex={selectedRow?.index ?? null}
+            displayRows={visualRows}
+            canonicalIndexMap={canonicalIndexMap}
+            selectedRowIndex={selectedCanonicalIndex}
             onRowClick={handleRowClick}
             onRowDoubleClick={handleRowDoubleClick}
             onExpandJson={handleExpandJson}
@@ -1513,7 +1540,7 @@ export function QueryResults({
               if (isToggle) {
                 // Cmd/Ctrl+click: toggle behavior
                 const wasSelected = selection.selectedIndices.has(index)
-                const isInDetailPanel = selectedRow?.index === index
+                const isInDetailPanel = selectedCanonicalIndex === index
 
                 if (wasSelected || isInDetailPanel) {
                   // Close detail panel if showing this row
@@ -1542,6 +1569,8 @@ export function QueryResults({
             onRowHover={setHoveredRowIndex}
             hasWrite={hasWrite}
             isExplainResult={isExplainResult}
+            sort={sort}
+            onSortChange={setSort}
           />
         )}
       </div>
@@ -1559,9 +1588,12 @@ export function QueryResults({
               hasPrevious={false}
               hasNext={false}
               scrollToColumn={selectedRow.column}
-              currentIndex={selectedRow.index}
-              totalCount={displayRows.length + 1}
-              onExpandJson={(value, columnName) => handleExpandJson(value, columnName, selectedRow.index)}
+              currentIndex={visualRows.length + 1}
+              totalCount={visualRows.length + 1}
+              onExpandJson={(value, columnName) => {
+                const ci = selectedCanonicalIndex
+                if (ci !== null) handleExpandJson(value, columnName, ci)
+              }}
               onEdit={undefined}
               isEditing={isEditingRow}
               onCancelEdit={handleClosePanel}
@@ -1577,11 +1609,14 @@ export function QueryResults({
           )
         }
 
-        const displayRow = displayRows[selectedRow.index - 1]
-        if (!displayRow) return null
+        const dr = selectedRow.displayRow
+        if (!dr) return null
+        const canonIdx = canonicalIndexMap.get(dr)
+        if (canonIdx === undefined) return null
 
-        const { status, originalData } = displayRow
+        const { status, originalData } = dr
         const isStagedInsert = status === 'staged-insert'
+        const visIdx = selectedVisualIndex
 
         // Map status to stagedType for RowDetailPanel
         const stagedType = status === 'staged-delete' ? 'delete'
@@ -1592,24 +1627,24 @@ export function QueryResults({
         // Compute staged overrides for update rows
         const stagedOverrides = status === 'staged-update' && originalData
           ? Object.fromEntries(
-              Object.entries(displayRow.data).filter(([key, val]) => originalData[key] !== val)
+              Object.entries(dr.data).filter(([key, val]) => originalData[key] !== val)
             )
           : undefined
 
         return (
           <RowDetailPanel
-            row={displayRow.data}
+            row={dr.data}
             columns={activeResult.result.columns}
             open={drawerOpen}
             onClose={handleClosePanel}
             onPrevious={handlePreviousRow}
             onNext={handleNextRow}
-            hasPrevious={selectedRow.index > 1}
-            hasNext={selectedRow.index < displayRows.length}
+            hasPrevious={visIdx !== null && visIdx > 1}
+            hasNext={visIdx !== null && visIdx < visualRows.length}
             scrollToColumn={selectedRow.column}
-            currentIndex={selectedRow.index}
-            totalCount={displayRows.length}
-            onExpandJson={(value, columnName) => handleExpandJson(value, columnName, selectedRow.index)}
+            currentIndex={visIdx ?? 0}
+            totalCount={visualRows.length}
+            onExpandJson={(value, columnName) => handleExpandJson(value, columnName, canonIdx)}
             onEdit={hasWrite && !isStagedInsert ? () => setIsEditingRow(true) : undefined}
             isEditing={isEditingRow}
             onCancelEdit={() => {
@@ -1619,19 +1654,19 @@ export function QueryResults({
             onSaveEdit={handleSaveEdit}
             autoEditColumn={autoEditColumn}
             onAutoEditHandled={() => setAutoEditColumn(null)}
-            onDelete={hasWrite && !isStagedInsert ? () => handleDeleteSelection([selectedRow.index]) : undefined}
+            onDelete={hasWrite && !isStagedInsert ? () => handleDeleteSelection([canonIdx]) : undefined}
             stagedType={stagedType}
             stagedOverrides={stagedOverrides}
             onDiscardStaged={() => {
-              const idx = selectedRow.index - 1
+              const idx0 = canonIdx - 1
               if (status === 'staged-insert') {
-                setDisplayRows(prev => prev.filter((_, i) => i !== idx))
+                setDisplayRows(prev => prev.filter((_, i) => i !== idx0))
                 setSelectedRow(null)
                 setDrawerOpen(false)
               } else if (status === 'staged-delete') {
-                setDisplayRows(prev => updateRow(prev, idx, { status: 'normal' }))
+                setDisplayRows(prev => updateRow(prev, idx0, { status: 'normal' }))
               } else if (status === 'staged-update') {
-                setDisplayRows(prev => updateRow(prev, idx, { data: originalData!, status: 'normal' }))
+                setDisplayRows(prev => updateRow(prev, idx0, { data: originalData!, status: 'normal' }))
               }
             }}
             isNewRow={false}
