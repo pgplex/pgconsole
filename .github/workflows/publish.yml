@@ -121,11 +121,6 @@ jobs:
           node-version: "22"
           cache: "pnpm"
 
-      - name: Upgrade npm
-        run: |
-          npm install -g npm@latest
-          echo "npm version: $(npm --version)"
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
