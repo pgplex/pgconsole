@@ -154,4 +154,4 @@ jobs:
             package.json > package.json.tmp
           mv package.json.tmp package.json
 
-          npm publish --access public --tag "$TAG"
+          npm publish --access public --tag "$TAG" --provenance
