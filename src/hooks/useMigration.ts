@@ -31,6 +31,10 @@ export function useApplyMigration() {
           error: response.error,
         })
       }
+      const failed = results.find(r => r.status === 'failed')
+      if (failed) {
+        throw new Error(failed.error || 'Migration apply failed')
+      }
       return results
     },
   })

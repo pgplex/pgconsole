@@ -93,7 +93,9 @@ export function runPgSchemaPlan(
     ]
 
     execFile('pgschema', args, { timeout: 120_000 }, (error, _stdout, stderr) => {
+      if (stderr) console.log('[pgschema plan] stderr:', stderr)
       if (error) {
+        console.error('[pgschema plan] error:', error.message)
         reject(new Error(`pgschema plan failed: ${stderr || error.message}`))
       } else {
         resolve()
@@ -122,9 +124,13 @@ export function runPgSchemaApply(
     ]
 
     execFile('pgschema', args, { timeout: 300_000 }, (error, stdout, stderr) => {
+      if (stdout) console.log('[pgschema apply] stdout:', stdout)
+      if (stderr) console.log('[pgschema apply] stderr:', stderr)
       if (error) {
+        console.error('[pgschema apply] error:', error.message)
         reject(new Error(`pgschema apply failed: ${stderr || error.message}`))
       } else {
+        console.log('[pgschema apply] completed successfully')
         resolve(stdout)
       }
     })

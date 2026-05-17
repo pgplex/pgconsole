@@ -76,46 +76,6 @@ export function MigrationPanel({ connectionId }: MigrationPanelProps) {
     )
   }
 
-  if (!planMutation.data && !planMutation.isPending && !planMutation.isError) {
-    return (
-      <div className="p-4 space-y-3">
-        <div className="flex items-center gap-2 text-sm text-gray-600">
-          <GitBranch className="size-4" />
-          <span>Compare current database schema with git source</span>
-        </div>
-        <Button onClick={handlePlan} size="sm">
-          <RefreshCw className="size-3.5 mr-1.5" />
-          Compare with Git
-        </Button>
-      </div>
-    )
-  }
-
-  if (planMutation.isPending) {
-    return (
-      <div className="p-4 flex items-center gap-2 text-sm text-gray-500">
-        <Spinner className="size-4" />
-        <span>Analyzing schema differences...</span>
-      </div>
-    )
-  }
-
-  if (planMutation.isError) {
-    return (
-      <div className="p-4 space-y-3">
-        <div className="flex items-center gap-2 text-sm text-red-600">
-          <AlertTriangle className="size-4" />
-          <span>Failed to generate plan</span>
-        </div>
-        <p className="text-xs text-red-500">{planMutation.error.message}</p>
-        <Button onClick={handlePlan} size="sm" variant="outline">
-          <RefreshCw className="size-3.5 mr-1.5" />
-          Retry
-        </Button>
-      </div>
-    )
-  }
-
   if (applyMutation.isPending) {
     return (
       <div className="p-4 flex items-center gap-2 text-sm text-gray-500">
@@ -151,6 +111,46 @@ export function MigrationPanel({ connectionId }: MigrationPanelProps) {
         <Button onClick={handlePlan} size="sm" variant="outline">
           <RefreshCw className="size-3.5 mr-1.5" />
           Compare again
+        </Button>
+      </div>
+    )
+  }
+
+  if (!planMutation.data && !planMutation.isPending && !planMutation.isError) {
+    return (
+      <div className="p-4 space-y-3">
+        <div className="flex items-center gap-2 text-sm text-gray-600">
+          <GitBranch className="size-4" />
+          <span>Compare current database schema with git source</span>
+        </div>
+        <Button onClick={handlePlan} size="sm">
+          <RefreshCw className="size-3.5 mr-1.5" />
+          Compare with Git
+        </Button>
+      </div>
+    )
+  }
+
+  if (planMutation.isPending) {
+    return (
+      <div className="p-4 flex items-center gap-2 text-sm text-gray-500">
+        <Spinner className="size-4" />
+        <span>Analyzing schema differences...</span>
+      </div>
+    )
+  }
+
+  if (planMutation.isError) {
+    return (
+      <div className="p-4 space-y-3">
+        <div className="flex items-center gap-2 text-sm text-red-600">
+          <AlertTriangle className="size-4" />
+          <span>Failed to generate plan</span>
+        </div>
+        <p className="text-xs text-red-500">{planMutation.error.message}</p>
+        <Button onClick={handlePlan} size="sm" variant="outline">
+          <RefreshCw className="size-3.5 mr-1.5" />
+          Retry
         </Button>
       </div>
     )
