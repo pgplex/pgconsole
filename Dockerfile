@@ -15,8 +15,8 @@ ARG GIT_COMMIT=unknown
 RUN GIT_COMMIT=${GIT_COMMIT} pnpm build
 
 ARG TARGETARCH
-RUN unzip bin/pgschema-*-linux-${TARGETARCH}.zip -d /usr/local/bin \
-  && mv /usr/local/bin/pgschema-*-linux-${TARGETARCH} /usr/local/bin/pgschema \
+RUN unzip bin/pgschema-linux-${TARGETARCH}.zip -d /usr/local/bin \
+  && mv /usr/local/bin/pgschema-linux-${TARGETARCH} /usr/local/bin/pgschema \
   && chmod +x /usr/local/bin/pgschema
 
 # Runtime dependencies
