@@ -5,7 +5,8 @@ import { ScrollArea } from '../ui/scroll-area'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import { Tooltip, TooltipTrigger, TooltipPopup, TooltipProvider } from '../ui/tooltip'
-import { SQLDefinition } from './schema/shared'
+import { SQLDefinition, MigrationPanel } from './schema'
+import { useSchemaSourceStatus } from '../../hooks/useMigration'
 import { FunctionDefinitionModal } from './FunctionDefinitionModal'
 import { FunctionArgumentList } from './FunctionArgumentForm'
 import { parseFunctionArguments } from '@/lib/sql/parse-function-args'
@@ -72,6 +73,8 @@ function ColumnTooltipContent({ col }: { col: ColumnInfo }) {
 
 export function ContextPanel({ connectionId, selectedObject, onViewSchema }: ContextPanelProps) {
   const [showDefinitionModal, setShowDefinitionModal] = useState(false)
+  const { data: schemaSourceStatus } = useSchemaSourceStatus(connectionId)
+  const hasSchemaSource = schemaSourceStatus?.configured ?? false
 
   const isFunction = selectedObject?.type === 'function' || selectedObject?.type === 'procedure'
   const isTableLike = selectedObject?.type === 'table' || selectedObject?.type === 'view' || selectedObject?.type === 'materialized_view'
@@ -90,6 +93,9 @@ export function ContextPanel({ connectionId, selectedObject, onViewSchema }: Con
   )
 
   if (!selectedObject) {
+    if (hasSchemaSource) {
+      return <MigrationPanel connectionId={connectionId} />
+    }
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-gray-500 p-4">
         <Table2 className="size-8 mb-2 opacity-50" />
