@@ -77,14 +77,26 @@ function connectionArgs(conn: ConnectionConfig): string[] {
     '--port', String(conn.port),
     '--db', conn.database,
     '--user', conn.username,
-    ...(conn.password ? ['--password', conn.password] : []),
     '--sslmode', conn.ssl_mode || 'prefer',
+    ...(conn.ssl_ca ? ['--ssl-ca', conn.ssl_ca] : []),
+    ...(conn.ssl_cert ? ['--ssl-cert', conn.ssl_cert] : []),
+    ...(conn.ssl_key ? ['--ssl-key', conn.ssl_key] : []),
+    ...(conn.statement_timeout ? ['--statement-timeout', conn.statement_timeout] : []),
   ]
 }
 
-function execPgSchema(args: string[], timeoutMs: number): Promise<{ stdout: string; stderr: string }> {
+function connectionEnv(conn: ConnectionConfig): Record<string, string> {
+  const env: Record<string, string> = {}
+  if (conn.password) {
+    env.PGPASSWORD = conn.password
+  }
+  return env
+}
+
+function execPgSchema(args: string[], timeoutMs: number, extraEnv?: Record<string, string>): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
-    execFile('pgschema', args, { timeout: timeoutMs }, (error, stdout, stderr) => {
+    const env = extraEnv ? { ...process.env, ...extraEnv } : undefined
+    execFile('pgschema', args, { timeout: timeoutMs, env }, (error, stdout, stderr) => {
       if (error) {
         reject(new Error(stderr || error.message))
       } else {
@@ -108,7 +120,7 @@ export async function runPgSchemaPlan(
       '--file', schemaFilePath,
       '--output-json', outputJsonPath,
       '--no-color',
-    ], 120_000)
+    ], 120_000, connectionEnv(conn))
   } catch (err) {
     throw new Error(`pgschema plan failed: ${(err as Error).message}`)
   }
@@ -126,7 +138,7 @@ export async function runPgSchemaApply(
       '--auto-approve',
       '--no-color',
       ...(conn.lock_timeout ? ['--lock-timeout', conn.lock_timeout] : []),
-    ], 300_000)
+    ], 300_000, connectionEnv(conn))
     return stdout
   } catch (err) {
     throw new Error(`pgschema apply failed: ${(err as Error).message}`)

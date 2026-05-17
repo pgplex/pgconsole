@@ -3,14 +3,22 @@ import type { ServiceImpl } from '@connectrpc/connect'
 import { MigrationService } from '../../src/gen/migration_connect'
 import { getConnectionById } from '../lib/config'
 import { getUserFromContext } from '../connect'
-import { requirePermission, requireAnyPermission } from '../lib/iam'
+import { requirePermission } from '../lib/iam'
 import { syncRepo, getRepoDir } from '../lib/git'
 import { runPgSchemaPlan, runPgSchemaApply, parsePlanJson, type PgSchemaPlanJson } from '../lib/pgschema'
 import { storePlan, getPlan, removePlan } from '../lib/plan-store'
 import { readFile } from 'fs/promises'
-import { join } from 'path'
+import { join, resolve } from 'path'
 import { tmpdir } from 'os'
 import { randomUUID } from 'crypto'
+
+function validateSchemaPath(repoDir: string, schemaPath: string): string {
+  const resolved = resolve(repoDir, schemaPath)
+  if (!resolved.startsWith(resolve(repoDir) + '/')) {
+    throw new ConnectError('schema_source.path escapes the repository directory', Code.InvalidArgument)
+  }
+  return resolved
+}
 
 export const migrationServiceHandlers: ServiceImpl<typeof MigrationService> = {
   async planMigration(req, context) {
@@ -28,7 +36,7 @@ export const migrationServiceHandlers: ServiceImpl<typeof MigrationService> = {
     }
 
     const user = await getUserFromContext(context.values)
-    requireAnyPermission(user, req.connectionId)
+    requirePermission(user, req.connectionId, 'read', 'plan migration')
 
     const { repo, branch, path: schemaPath, schema: pgSchema } = conn.schema_source
 
@@ -44,7 +52,7 @@ export const migrationServiceHandlers: ServiceImpl<typeof MigrationService> = {
     }
 
     const repoDir = getRepoDir(req.connectionId)
-    const schemaFilePath = join(repoDir, schemaPath)
+    const schemaFilePath = validateSchemaPath(repoDir, schemaPath)
     const outputJsonPath = join(tmpdir(), `pgconsole-plan-${randomUUID()}.json`)
 
     try {
@@ -121,14 +129,12 @@ export const migrationServiceHandlers: ServiceImpl<typeof MigrationService> = {
     const parsed = parsePlanJson(plan.planData as Parameters<typeof parsePlanJson>[0], plan.schema)
     const totalSteps = parsed.diffs.length
 
-    for (let i = 0; i < totalSteps; i++) {
-      yield {
-        step: i + 1,
-        totalSteps,
-        sql: parsed.diffs[i].sql,
-        status: 'running',
-        error: '',
-      }
+    yield {
+      step: 0,
+      totalSteps,
+      sql: '',
+      status: 'running',
+      error: '',
     }
 
     try {
@@ -166,7 +172,7 @@ export const migrationServiceHandlers: ServiceImpl<typeof MigrationService> = {
     }
 
     const user = await getUserFromContext(context.values)
-    requireAnyPermission(user, req.connectionId)
+    requirePermission(user, req.connectionId, 'read', 'check schema source status')
 
     if (!conn.schema_source) {
       return { configured: false, repo: '', branch: '', path: '', schema: '' }

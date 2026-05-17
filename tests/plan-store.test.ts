@@ -14,7 +14,8 @@ describe('plan-store', () => {
     const planId = storePlan({
       connectionId: 'staging',
       planJsonPath: '/tmp/plan.json',
-      planData: { diffs: [] },
+      planData: { schemas: {} },
+      schema: 'public',
     })
 
     const plan = getPlan(planId)
@@ -31,7 +32,8 @@ describe('plan-store', () => {
     const planId = storePlan({
       connectionId: 'staging',
       planJsonPath: '/tmp/plan.json',
-      planData: { diffs: [] },
+      planData: { schemas: {} },
+      schema: 'public',
     })
 
     removePlan(planId)
@@ -42,7 +44,8 @@ describe('plan-store', () => {
     const planId = storePlan({
       connectionId: 'staging',
       planJsonPath: '/tmp/plan.json',
-      planData: { diffs: [] },
+      planData: { schemas: {} },
+      schema: 'public',
     })
 
     vi.advanceTimersByTime(31 * 60 * 1000)
@@ -54,7 +57,8 @@ describe('plan-store', () => {
     const planId = storePlan({
       connectionId: 'staging',
       planJsonPath: '/tmp/plan.json',
-      planData: { diffs: [] },
+      planData: { schemas: {} },
+      schema: 'public',
     })
 
     vi.advanceTimersByTime(29 * 60 * 1000)

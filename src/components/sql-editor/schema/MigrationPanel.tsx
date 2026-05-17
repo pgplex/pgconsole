@@ -5,7 +5,7 @@ import { Button } from '../../ui/button'
 import { Badge } from '../../ui/badge'
 import { ScrollArea } from '../../ui/scroll-area'
 import { Spinner } from '../../ui/spinner'
-import { usePlanMigration, useApplyMigration } from '../../../hooks/useMigration'
+import { usePlanMigration, useApplyMigration, useSchemaSourceStatus } from '../../../hooks/useMigration'
 import { useConnectionPermissions } from '../../../hooks/usePermissions'
 import { useQueryClient } from '@tanstack/react-query'
 import { invalidateSchemaQueries } from '../../../hooks/useQuery'
@@ -82,10 +82,31 @@ function StatusMessage({ icon, text, className }: { icon: React.ReactNode; text:
 export function MigrationPanel({ connectionId }: MigrationPanelProps) {
   const { hasDdl } = useConnectionPermissions(connectionId)
   const queryClient = useQueryClient()
+  const statusQuery = useSchemaSourceStatus(connectionId)
   const planMutation = usePlanMigration()
   const applyMutation = useApplyMigration()
   const [showSql, setShowSql] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
+
+  if (statusQuery.isLoading) {
+    return (
+      <div className="p-4 flex items-center gap-2 text-sm text-gray-500">
+        <Spinner className="size-4" />
+        <span>Checking configuration...</span>
+      </div>
+    )
+  }
+
+  if (!statusQuery.data?.configured) {
+    return (
+      <div className="p-4 space-y-2">
+        <StatusMessage icon={<GitBranch className="size-4" />} text="Schema migration not configured" className="text-gray-500" />
+        <p className="text-xs text-gray-400">
+          Add a <code className="bg-gray-100 px-1 rounded">schema_source</code> block to this connection in <code className="bg-gray-100 px-1 rounded">pgconsole.toml</code> to enable migrations.
+        </p>
+      </div>
+    )
+  }
 
   const state = derivePanelState(planMutation, applyMutation)
 
