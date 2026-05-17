@@ -14,6 +14,11 @@ COPY . .
 ARG GIT_COMMIT=unknown
 RUN GIT_COMMIT=${GIT_COMMIT} pnpm build
 
+ARG TARGETARCH
+RUN unzip bin/pgschema-*-linux-${TARGETARCH}.zip -d /usr/local/bin \
+  && mv /usr/local/bin/pgschema-*-linux-${TARGETARCH} /usr/local/bin/pgschema \
+  && chmod +x /usr/local/bin/pgschema
+
 # Runtime dependencies
 # Generated from esbuild externals + package.json versions (single source of truth).
 # Only rebuilds when package.json or build-server.mjs externals change.
@@ -49,7 +54,8 @@ COPY --from=node:22-alpine /usr/local/bin/node /usr/local/bin/node
 
 WORKDIR /app
 
-# 1. Entrypoint — rarely changes
+# 1. Binaries & entrypoint — rarely change
+COPY --from=builder /usr/local/bin/pgschema /usr/local/bin/pgschema
 COPY docker-entrypoint.sh /app/
 
 # 2. Runtime node_modules — changes only when externals or dep versions change
