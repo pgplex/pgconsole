@@ -16,7 +16,7 @@ export interface ParsedPlan {
   summary: string
 }
 
-interface PgSchemaPlanJson {
+export interface PgSchemaPlanJson {
   schemas?: Record<string, {
     source_fingerprint?: { hash: string }
     groups?: Array<{
@@ -71,68 +71,64 @@ export function parsePlanJson(json: PgSchemaPlanJson, schema: string): ParsedPla
   return { sourceFingerprint, diffs, canRunInTransaction, summary }
 }
 
-export function runPgSchemaPlan(
-  conn: ConnectionConfig,
-  schemaFilePath: string,
-  outputJsonPath: string,
-  pgSchema: string,
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const args = [
-      'plan',
-      '--host', conn.host,
-      '--port', String(conn.port),
-      '--db', conn.database,
-      '--user', conn.username,
-      ...(conn.password ? ['--password', conn.password] : []),
-      '--sslmode', conn.ssl_mode || 'prefer',
-      '--schema', pgSchema,
-      '--file', schemaFilePath,
-      '--output-json', outputJsonPath,
-      '--no-color',
-    ]
+function connectionArgs(conn: ConnectionConfig): string[] {
+  return [
+    '--host', conn.host,
+    '--port', String(conn.port),
+    '--db', conn.database,
+    '--user', conn.username,
+    ...(conn.password ? ['--password', conn.password] : []),
+    '--sslmode', conn.ssl_mode || 'prefer',
+  ]
+}
 
-    execFile('pgschema', args, { timeout: 120_000 }, (error, _stdout, stderr) => {
-      if (stderr) console.log('[pgschema plan] stderr:', stderr)
+function execPgSchema(args: string[], timeoutMs: number): Promise<{ stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    execFile('pgschema', args, { timeout: timeoutMs }, (error, stdout, stderr) => {
       if (error) {
-        console.error('[pgschema plan] error:', error.message)
-        reject(new Error(`pgschema plan failed: ${stderr || error.message}`))
+        reject(new Error(stderr || error.message))
       } else {
-        resolve()
+        resolve({ stdout, stderr })
       }
     })
   })
 }
 
-export function runPgSchemaApply(
+export async function runPgSchemaPlan(
+  conn: ConnectionConfig,
+  schemaFilePath: string,
+  outputJsonPath: string,
+  pgSchema: string,
+): Promise<void> {
+  try {
+    await execPgSchema([
+      'plan',
+      ...connectionArgs(conn),
+      '--schema', pgSchema,
+      '--file', schemaFilePath,
+      '--output-json', outputJsonPath,
+      '--no-color',
+    ], 120_000)
+  } catch (err) {
+    throw new Error(`pgschema plan failed: ${(err as Error).message}`)
+  }
+}
+
+export async function runPgSchemaApply(
   conn: ConnectionConfig,
   planJsonPath: string,
 ): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const args = [
+  try {
+    const { stdout } = await execPgSchema([
       'apply',
-      '--host', conn.host,
-      '--port', String(conn.port),
-      '--db', conn.database,
-      '--user', conn.username,
-      ...(conn.password ? ['--password', conn.password] : []),
-      '--sslmode', conn.ssl_mode || 'prefer',
+      ...connectionArgs(conn),
       '--plan', planJsonPath,
       '--auto-approve',
       '--no-color',
       ...(conn.lock_timeout ? ['--lock-timeout', conn.lock_timeout] : []),
-    ]
-
-    execFile('pgschema', args, { timeout: 300_000 }, (error, stdout, stderr) => {
-      if (stdout) console.log('[pgschema apply] stdout:', stdout)
-      if (stderr) console.log('[pgschema apply] stderr:', stderr)
-      if (error) {
-        console.error('[pgschema apply] error:', error.message)
-        reject(new Error(`pgschema apply failed: ${stderr || error.message}`))
-      } else {
-        console.log('[pgschema apply] completed successfully')
-        resolve(stdout)
-      }
-    })
-  })
+    ], 300_000)
+    return stdout
+  } catch (err) {
+    throw new Error(`pgschema apply failed: ${(err as Error).message}`)
+  }
 }

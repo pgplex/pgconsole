@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { AlertDialog as AlertDialogPrimitive } from '@base-ui/react/alert-dialog'
-import { GitBranch, Play, RefreshCw, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { GitBranch, Play, RefreshCw, AlertTriangle, CircleCheck } from 'lucide-react'
 import { Button } from '../../ui/button'
 import { Badge } from '../../ui/badge'
 import { ScrollArea } from '../../ui/scroll-area'
@@ -9,14 +9,7 @@ import { usePlanMigration, useApplyMigration } from '../../../hooks/useMigration
 import { useConnectionPermissions } from '../../../hooks/usePermissions'
 import { useQueryClient } from '@tanstack/react-query'
 import { invalidateSchemaQueries } from '../../../hooks/useQuery'
-
-interface DiffData {
-  sql: string
-  type: string
-  operation: string
-  path: string
-  canRunInTransaction: boolean
-}
+import type { SchemaDiff } from '@/gen/migration_pb'
 
 interface MigrationPanelProps {
   connectionId: string
@@ -34,7 +27,7 @@ const operationIcon: Record<string, string> = {
   drop: '-',
 }
 
-function DiffItem({ diff }: { diff: DiffData }) {
+function DiffItem({ diff }: { diff: SchemaDiff }) {
   const colorClass = operationColor[diff.operation] || 'text-gray-700 bg-gray-50'
   const icon = operationIcon[diff.operation] || '?'
 
@@ -105,7 +98,7 @@ export function MigrationPanel({ connectionId }: MigrationPanelProps) {
     return (
       <div className="p-4 space-y-3">
         <div className="flex items-center gap-2 text-sm text-green-600">
-          <CheckCircle2 className="size-4" />
+          <CircleCheck className="size-4" />
           <span>Migration applied successfully</span>
         </div>
         <Button onClick={handlePlan} size="sm" variant="outline">
@@ -157,13 +150,13 @@ export function MigrationPanel({ connectionId }: MigrationPanelProps) {
   }
 
   const plan = planMutation.data!
-  const diffs = plan.diffs as DiffData[]
+  const diffs = plan.diffs as SchemaDiff[]
 
   if (diffs.length === 0) {
     return (
       <div className="p-4 space-y-3">
         <div className="flex items-center gap-2 text-sm text-green-600">
-          <CheckCircle2 className="size-4" />
+          <CircleCheck className="size-4" />
           <span>Schema is up to date with git</span>
         </div>
         <p className="text-xs text-gray-500">

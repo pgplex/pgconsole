@@ -5,7 +5,7 @@ import { getConnectionById } from '../lib/config'
 import { getUserFromContext } from '../connect'
 import { requirePermission, requireAnyPermission } from '../lib/iam'
 import { syncRepo, getRepoDir } from '../lib/git'
-import { runPgSchemaPlan, runPgSchemaApply, parsePlanJson } from '../lib/pgschema'
+import { runPgSchemaPlan, runPgSchemaApply, parsePlanJson, type PgSchemaPlanJson } from '../lib/pgschema'
 import { storePlan, getPlan, removePlan } from '../lib/plan-store'
 import { readFile } from 'fs/promises'
 import { join } from 'path'
@@ -56,10 +56,10 @@ export const migrationServiceHandlers: ServiceImpl<typeof MigrationService> = {
       )
     }
 
-    let planJson: unknown
+    let planJson: PgSchemaPlanJson
     try {
       const raw = await readFile(outputJsonPath, 'utf-8')
-      planJson = JSON.parse(raw)
+      planJson = JSON.parse(raw) as PgSchemaPlanJson
     } catch (err) {
       throw new ConnectError(
         `Failed to read plan output: ${err instanceof Error ? err.message : String(err)}`,
@@ -67,7 +67,7 @@ export const migrationServiceHandlers: ServiceImpl<typeof MigrationService> = {
       )
     }
 
-    const parsed = parsePlanJson(planJson as Parameters<typeof parsePlanJson>[0], pgSchema)
+    const parsed = parsePlanJson(planJson, pgSchema)
 
     const planId = storePlan({
       connectionId: req.connectionId,

@@ -1,18 +1,27 @@
 import { randomUUID } from 'crypto'
+import type { PgSchemaPlanJson } from './pgschema'
 
 const PLAN_TTL_MS = 30 * 60 * 1000
 
 export interface StoredPlan {
   connectionId: string
   planJsonPath: string
-  planData: unknown
+  planData: PgSchemaPlanJson
   schema: string
   createdAt: number
 }
 
 const plans = new Map<string, StoredPlan>()
 
-export function storePlan(opts: { connectionId: string; planJsonPath: string; planData: unknown; schema: string }): string {
+function evictExpired(): void {
+  const now = Date.now()
+  for (const [id, plan] of plans) {
+    if (now - plan.createdAt > PLAN_TTL_MS) plans.delete(id)
+  }
+}
+
+export function storePlan(opts: { connectionId: string; planJsonPath: string; planData: PgSchemaPlanJson; schema: string }): string {
+  evictExpired()
   const id = randomUUID()
   plans.set(id, {
     connectionId: opts.connectionId,
