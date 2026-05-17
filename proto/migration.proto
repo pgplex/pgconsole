@@ -1,0 +1,56 @@
+syntax = "proto3";
+
+package migration.v1;
+
+service MigrationService {
+  rpc PlanMigration(PlanMigrationRequest) returns (PlanMigrationResponse);
+  rpc ApplyMigration(ApplyMigrationRequest) returns (stream ApplyMigrationResponse);
+  rpc GetSchemaSourceStatus(GetSchemaSourceStatusRequest) returns (GetSchemaSourceStatusResponse);
+}
+
+message PlanMigrationRequest {
+  string connection_id = 1;
+}
+
+message SchemaDiff {
+  string sql = 1;
+  string type = 2;
+  string operation = 3;
+  string path = 4;
+  bool can_run_in_transaction = 5;
+}
+
+message PlanMigrationResponse {
+  string plan_id = 1;
+  string branch = 2;
+  string commit_hash = 3;
+  string source_fingerprint = 4;
+  repeated SchemaDiff diffs = 5;
+  bool can_run_in_transaction = 6;
+  string summary = 7;
+}
+
+message ApplyMigrationRequest {
+  string connection_id = 1;
+  string plan_id = 2;
+}
+
+message ApplyMigrationResponse {
+  int32 step = 1;
+  int32 total_steps = 2;
+  string sql = 3;
+  string status = 4;
+  string error = 5;
+}
+
+message GetSchemaSourceStatusRequest {
+  string connection_id = 1;
+}
+
+message GetSchemaSourceStatusResponse {
+  bool configured = 1;
+  string repo = 2;
+  string branch = 3;
+  string path = 4;
+  string schema = 5;
+}
