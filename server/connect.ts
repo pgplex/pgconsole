@@ -3,9 +3,11 @@ import type { Request } from "express";
 import { ConnectionService } from "../src/gen/connection_connect";
 import { QueryService } from "../src/gen/query_connect";
 import { AIService } from "../src/gen/ai_connect";
+import { MigrationService } from "../src/gen/migration_connect";
 import { connectionServiceHandlers } from "./services/connection-service";
 import { queryServiceHandlers } from "./services/query-service";
 import { aiServiceHandlers } from "./services/ai-service";
+import { migrationServiceHandlers } from "./services/migration-service";
 import { getCurrentUser, type User } from "./lib/auth";
 import { isAuthEnabled } from "./lib/config";
 
@@ -28,6 +30,7 @@ export const connectRouter = expressConnectMiddleware({
     router.service(ConnectionService, connectionServiceHandlers);
     router.service(QueryService, queryServiceHandlers);
     router.service(AIService, aiServiceHandlers);
+    router.service(MigrationService, migrationServiceHandlers);
   },
   // Set max message size to ~4GB for large query results
   readMaxBytes: 0xffffffff,
