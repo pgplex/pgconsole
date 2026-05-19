@@ -2,6 +2,8 @@ import { ConnectError, Code } from '@connectrpc/connect'
 import type { ServiceImpl } from '@connectrpc/connect'
 import { MigrationService } from '../../src/gen/migration_connect'
 import { getConnectionById } from '../lib/config'
+import type { ConnectionConfig } from '../lib/config'
+import { withConnection, type ConnectionDetails } from '../lib/db'
 import { getUserFromContext } from '../connect'
 import { requirePermission } from '../lib/iam'
 import { syncRepo, getRepoDir } from '../lib/git'
@@ -11,6 +13,51 @@ import { readFile } from 'fs/promises'
 import { join, resolve } from 'path'
 import { tmpdir } from 'os'
 import { randomUUID } from 'crypto'
+
+interface SchemaSource {
+  repo: string
+  branch: string
+  path: string
+  schema: string
+}
+
+function getConnectionDetails(conn: ConnectionConfig): ConnectionDetails {
+  return {
+    host: conn.host,
+    port: conn.port,
+    database: conn.database,
+    username: conn.username,
+    password: conn.password,
+    sslMode: conn.ssl_mode || 'prefer',
+    lockTimeout: conn.lock_timeout,
+    statementTimeout: conn.statement_timeout,
+  }
+}
+
+async function getSchemaSource(details: ConnectionDetails, email?: string): Promise<SchemaSource | null> {
+  return withConnection(details, async (sql) => {
+    const rows = await sql`
+      SELECT 1 FROM pg_class WHERE relname = '_pgconsole' AND relkind = 'r'
+    `
+    if (rows.length === 0) return null
+
+    const result = await sql`
+      SELECT value FROM _pgconsole WHERE key = 'schema_source'
+    `
+    if (result.length === 0) return null
+
+    const value = result[0].value as Record<string, unknown>
+    if (!value.repo || typeof value.repo !== 'string') return null
+    if (!value.path || typeof value.path !== 'string') return null
+
+    return {
+      repo: value.repo,
+      branch: typeof value.branch === 'string' ? value.branch : 'main',
+      path: value.path,
+      schema: typeof value.schema === 'string' ? value.schema : 'public',
+    }
+  }, email)
+}
 
 function validateSchemaPath(repoDir: string, schemaPath: string): string {
   const resolved = resolve(repoDir, schemaPath)
@@ -31,14 +78,19 @@ export const migrationServiceHandlers: ServiceImpl<typeof MigrationService> = {
       throw new ConnectError('Connection not found', Code.NotFound)
     }
 
-    if (!conn.schema_source) {
-      throw new ConnectError('Connection does not have a schema_source configured', Code.FailedPrecondition)
-    }
-
     const user = await getUserFromContext(context.values)
     requirePermission(user, req.connectionId, 'read', 'plan migration')
 
-    const { repo, branch, path: schemaPath, schema: pgSchema } = conn.schema_source
+    const details = getConnectionDetails(conn)
+    const schemaSource = await getSchemaSource(details, user?.email)
+    if (!schemaSource) {
+      throw new ConnectError(
+        'No schema_source configured. Use SetMetadata to store a schema_source entry in the _pgconsole table.',
+        Code.FailedPrecondition,
+      )
+    }
+
+    const { repo, branch, path: schemaPath, schema: pgSchema } = schemaSource
 
     let commitHash: string
     try {
@@ -174,16 +226,19 @@ export const migrationServiceHandlers: ServiceImpl<typeof MigrationService> = {
     const user = await getUserFromContext(context.values)
     requirePermission(user, req.connectionId, 'read', 'check schema source status')
 
-    if (!conn.schema_source) {
+    const details = getConnectionDetails(conn)
+    const schemaSource = await getSchemaSource(details, user?.email)
+
+    if (!schemaSource) {
       return { configured: false, repo: '', branch: '', path: '', schema: '' }
     }
 
     return {
       configured: true,
-      repo: conn.schema_source.repo,
-      branch: conn.schema_source.branch || '',
-      path: conn.schema_source.path,
-      schema: conn.schema_source.schema,
+      repo: schemaSource.repo,
+      branch: schemaSource.branch,
+      path: schemaSource.path,
+      schema: schemaSource.schema,
     }
   },
 }

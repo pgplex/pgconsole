@@ -96,12 +96,6 @@ username = "app_user"
 password = "staging_password"
 ssl_mode = "require"
 labels = ["staging"]
-# Schema migration source (optional) — enables migration features
-# [connections.schema_source]
-# repo = "https://github.com/myorg/db-schema.git"
-# branch = "main"
-# path = "schema/main.sql"
-# schema = "public"
 
 # Example with full SSL configuration and timeouts
 # [[connections]]
