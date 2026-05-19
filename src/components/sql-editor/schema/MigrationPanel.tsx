@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { AlertDialog as AlertDialogPrimitive } from '@base-ui/react/alert-dialog'
-import { GitBranch, Play, RefreshCw, AlertTriangle, CircleCheck } from 'lucide-react'
+import { GitBranch, Play, RefreshCw, AlertTriangle, CircleCheck, Database } from 'lucide-react'
 import { Button } from '../../ui/button'
 import { Badge } from '../../ui/badge'
+import { Input } from '../../ui/input'
 import { ScrollArea } from '../../ui/scroll-area'
 import { Spinner } from '../../ui/spinner'
-import { usePlanMigration, useApplyMigration, useSchemaSourceStatus } from '../../../hooks/useMigration'
+import { toastManager } from '../../ui/toast'
+import { usePlanMigration, useApplyMigration, useSchemaSourceStatus, useMetadataTableStatus, useInitMetadataTable, useSetSchemaSource } from '../../../hooks/useMigration'
 import { useConnectionPermissions } from '../../../hooks/usePermissions'
 import { useQueryClient } from '@tanstack/react-query'
 import { invalidateSchemaQueries } from '../../../hooks/useQuery'
@@ -79,6 +81,117 @@ function StatusMessage({ icon, text, className }: { icon: React.ReactNode; text:
   )
 }
 
+function SchemaSourceSetup({ connectionId }: { connectionId: string }) {
+  const { hasAdmin } = useConnectionPermissions(connectionId)
+  const tableStatus = useMetadataTableStatus(connectionId)
+  const initTable = useInitMetadataTable()
+  const setSchemaSource = useSetSchemaSource()
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [repo, setRepo] = useState('')
+  const [branch, setBranch] = useState('main')
+  const [path, setPath] = useState('')
+  const [schema, setSchema] = useState('public')
+
+  if (tableStatus.isLoading) {
+    return (
+      <div className="p-4 flex items-center gap-2 text-sm text-gray-500">
+        <Spinner className="size-4" />
+        <span>Checking metadata table...</span>
+      </div>
+    )
+  }
+
+  if (!tableStatus.data?.initialized) {
+    const handleInit = () => {
+      setConfirmOpen(false)
+      initTable.mutate(connectionId, {
+        onError: (err) => {
+          toastManager.add({ type: 'error', title: 'Failed to create metadata table', description: err.message })
+        },
+      })
+    }
+
+    return (
+      <div className="p-4 space-y-3">
+        <StatusMessage icon={<Database className="size-4" />} text="Metadata table not initialized" className="text-gray-500" />
+        <p className="text-xs text-gray-400">
+          Migration features require a <code className="bg-gray-100 px-1 rounded">_pgconsole</code> table in your database to store configuration.
+        </p>
+        {hasAdmin ? (
+          <Button onClick={() => setConfirmOpen(true)} size="sm" disabled={initTable.isPending}>
+            {initTable.isPending ? <><Spinner className="size-3.5 mr-1.5" /> Initializing...</> : 'Initialize'}
+          </Button>
+        ) : (
+          <p className="text-xs text-amber-600">Admin permission required to initialize.</p>
+        )}
+
+        <AlertDialogPrimitive.Root open={confirmOpen} onOpenChange={setConfirmOpen}>
+          <AlertDialogPrimitive.Portal>
+            <AlertDialogPrimitive.Backdrop className="fixed inset-0 z-[60] bg-black/32 backdrop-blur-sm" />
+            <AlertDialogPrimitive.Viewport className="fixed inset-0 z-[60] grid place-items-center p-4">
+              <AlertDialogPrimitive.Popup className="w-full max-w-md rounded-2xl border bg-white p-6 shadow-lg">
+                <AlertDialogPrimitive.Title className="text-lg font-semibold">
+                  Create Metadata Table
+                </AlertDialogPrimitive.Title>
+                <AlertDialogPrimitive.Description className="mt-2 text-sm text-gray-500">
+                  This will create a <code className="bg-gray-100 px-1 rounded">_pgconsole</code> table in your database to store pgconsole configuration. Continue?
+                </AlertDialogPrimitive.Description>
+                <div className="mt-6 flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setConfirmOpen(false)}>Cancel</Button>
+                  <Button onClick={handleInit}>Create Table</Button>
+                </div>
+              </AlertDialogPrimitive.Popup>
+            </AlertDialogPrimitive.Viewport>
+          </AlertDialogPrimitive.Portal>
+        </AlertDialogPrimitive.Root>
+      </div>
+    )
+  }
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!repo.trim() || !path.trim()) return
+    setSchemaSource.mutate(
+      { connectionId, source: { repo: repo.trim(), branch: branch.trim() || 'main', path: path.trim(), schema: schema.trim() || 'public' } },
+      {
+        onSuccess: () => {
+          toastManager.add({ type: 'success', title: 'Schema source configured' })
+        },
+        onError: (err) => {
+          toastManager.add({ type: 'error', title: 'Failed to save schema source', description: err.message })
+        },
+      },
+    )
+  }
+
+  return (
+    <div className="p-4 space-y-3">
+      <StatusMessage icon={<GitBranch className="size-4" />} text="Configure schema source" className="text-gray-600" />
+      <form onSubmit={handleSubmit} className="space-y-2">
+        <div>
+          <label className="text-xs font-medium text-gray-600">Repository URL *</label>
+          <Input size="sm" value={repo} onChange={(e) => setRepo(e.target.value)} placeholder="https://github.com/org/repo.git" required />
+        </div>
+        <div>
+          <label className="text-xs font-medium text-gray-600">Branch</label>
+          <Input size="sm" value={branch} onChange={(e) => setBranch(e.target.value)} placeholder="main" />
+        </div>
+        <div>
+          <label className="text-xs font-medium text-gray-600">Schema file path *</label>
+          <Input size="sm" value={path} onChange={(e) => setPath(e.target.value)} placeholder="schema.sql" required />
+        </div>
+        <div>
+          <label className="text-xs font-medium text-gray-600">Target schema</label>
+          <Input size="sm" value={schema} onChange={(e) => setSchema(e.target.value)} placeholder="public" />
+        </div>
+        <Button type="submit" size="sm" disabled={setSchemaSource.isPending || !repo.trim() || !path.trim()}>
+          {setSchemaSource.isPending ? <><Spinner className="size-3.5 mr-1.5" /> Saving...</> : 'Save'}
+        </Button>
+      </form>
+    </div>
+  )
+}
+
 export function MigrationPanel({ connectionId }: MigrationPanelProps) {
   const { hasDdl } = useConnectionPermissions(connectionId)
   const queryClient = useQueryClient()
@@ -98,14 +211,7 @@ export function MigrationPanel({ connectionId }: MigrationPanelProps) {
   }
 
   if (!statusQuery.data?.configured) {
-    return (
-      <div className="p-4 space-y-2">
-        <StatusMessage icon={<GitBranch className="size-4" />} text="Schema migration not configured" className="text-gray-500" />
-        <p className="text-xs text-gray-400">
-          Add a <code className="bg-gray-100 px-1 rounded">schema_source</code> block to this connection in <code className="bg-gray-100 px-1 rounded">pgconsole.toml</code> to enable migrations.
-        </p>
-      </div>
-    )
+    return <SchemaSourceSetup connectionId={connectionId} />
   }
 
   const state = derivePanelState(planMutation, applyMutation)
