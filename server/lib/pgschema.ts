@@ -1,4 +1,6 @@
 import { execFile } from 'child_process'
+import { writeFile } from 'fs/promises'
+import { join } from 'path'
 import type { ConnectionConfig } from './config'
 
 export interface PlanDiff {
@@ -93,10 +95,10 @@ function connectionEnv(conn: ConnectionConfig): Record<string, string> {
   return env
 }
 
-function execPgSchema(args: string[], timeoutMs: number, extraEnv?: Record<string, string>): Promise<{ stdout: string; stderr: string }> {
+function execPgSchema(args: string[], timeoutMs: number, extraEnv?: Record<string, string>, cwd?: string): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     const env = extraEnv ? { ...process.env, ...extraEnv } : undefined
-    execFile('pgschema', args, { timeout: timeoutMs, env }, (error, stdout, stderr) => {
+    execFile('pgschema', args, { timeout: timeoutMs, env, cwd }, (error, stdout, stderr) => {
       if (error) {
         reject(new Error(stderr || error.message))
       } else {
@@ -106,12 +108,22 @@ function execPgSchema(args: string[], timeoutMs: number, extraEnv?: Record<strin
   })
 }
 
+const PGSCHEMA_IGNORE = `[tables]\npatterns = ["_pgconsole"]\n`
+
+async function ensureIgnoreFile(repoDir: string): Promise<void> {
+  await writeFile(join(repoDir, '.pgschemaignore'), PGSCHEMA_IGNORE)
+}
+
 export async function runPgSchemaPlan(
   conn: ConnectionConfig,
   schemaFilePath: string,
   outputJsonPath: string,
   pgSchema: string,
+  repoDir?: string,
 ): Promise<void> {
+  if (repoDir) {
+    await ensureIgnoreFile(repoDir)
+  }
   try {
     await execPgSchema([
       'plan',
@@ -120,7 +132,7 @@ export async function runPgSchemaPlan(
       '--file', schemaFilePath,
       '--output-json', outputJsonPath,
       '--no-color',
-    ], 120_000, connectionEnv(conn))
+    ], 120_000, connectionEnv(conn), repoDir)
   } catch (err) {
     throw new Error(`pgschema plan failed: ${(err as Error).message}`)
   }
@@ -129,7 +141,11 @@ export async function runPgSchemaPlan(
 export async function runPgSchemaApply(
   conn: ConnectionConfig,
   planJsonPath: string,
+  repoDir?: string,
 ): Promise<string> {
+  if (repoDir) {
+    await ensureIgnoreFile(repoDir)
+  }
   try {
     const { stdout } = await execPgSchema([
       'apply',
@@ -138,7 +154,7 @@ export async function runPgSchemaApply(
       '--auto-approve',
       '--no-color',
       ...(conn.lock_timeout ? ['--lock-timeout', conn.lock_timeout] : []),
-    ], 300_000, connectionEnv(conn))
+    ], 300_000, connectionEnv(conn), repoDir)
     return stdout
   } catch (err) {
     throw new Error(`pgschema apply failed: ${(err as Error).message}`)

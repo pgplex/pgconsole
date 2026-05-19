@@ -5,10 +5,12 @@ import { ConnectionService } from "../src/gen/connection_connect";
 import { QueryService } from "../src/gen/query_connect";
 import { AIService } from "../src/gen/ai_connect";
 import { MigrationService } from "../src/gen/migration_connect";
+import { MetadataService } from "../src/gen/metadata_connect";
 import { connectionServiceHandlers } from "./services/connection-service";
 import { queryServiceHandlers } from "./services/query-service";
 import { aiServiceHandlers } from "./services/ai-service";
 import { migrationServiceHandlers } from "./services/migration-service";
+import { metadataServiceHandlers } from "./services/metadata-service";
 import { getCurrentUser, type User } from "./lib/auth";
 import { isAuthEnabled } from "./lib/config";
 
@@ -41,6 +43,7 @@ export const connectRouter = expressConnectMiddleware({
     router.service(QueryService, queryServiceHandlers, { interceptors: [loggingInterceptor] });
     router.service(AIService, aiServiceHandlers, { interceptors: [loggingInterceptor] });
     router.service(MigrationService, migrationServiceHandlers, { interceptors: [loggingInterceptor] });
+    router.service(MetadataService, metadataServiceHandlers, { interceptors: [loggingInterceptor] });
   },
   // Set max message size to ~4GB for large query results
   readMaxBytes: 0xffffffff,

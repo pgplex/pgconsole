@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package metadata.v1;
+
+service MetadataService {
+  rpc InitMetadataTable(InitMetadataTableRequest) returns (InitMetadataTableResponse);
+  rpc GetMetadata(GetMetadataRequest) returns (GetMetadataResponse);
+  rpc SetMetadata(SetMetadataRequest) returns (SetMetadataResponse);
+  rpc DeleteMetadata(DeleteMetadataRequest) returns (DeleteMetadataResponse);
+  rpc ListMetadata(ListMetadataRequest) returns (ListMetadataResponse);
+}
+
+message MetadataEntry {
+  string key = 1;
+  string value = 2;     // JSON string
+  string updated_at = 3; // ISO 8601 timestamp
+}
+
+message InitMetadataTableRequest {
+  string connection_id = 1;
+}
+
+message InitMetadataTableResponse {
+  bool success = 1;
+}
+
+message GetMetadataRequest {
+  string connection_id = 1;
+  string key = 2;
+}
+
+message GetMetadataResponse {
+  MetadataEntry entry = 1;
+}
+
+message SetMetadataRequest {
+  string connection_id = 1;
+  string key = 2;
+  string value = 3; // JSON string
+}
+
+message SetMetadataResponse {
+  MetadataEntry entry = 1;
+}
+
+message DeleteMetadataRequest {
+  string connection_id = 1;
+  string key = 2;
+}
+
+message DeleteMetadataResponse {
+  bool success = 1;
+}
+
+message ListMetadataRequest {
+  string connection_id = 1;
+  string prefix = 2; // Optional key prefix filter
+}
+
+message ListMetadataResponse {
+  repeated MetadataEntry entries = 1;
+}

@@ -33,7 +33,6 @@ export interface ConnectionConfig {
   lock_timeout?: string
   statement_timeout?: string
   lazy?: boolean
-  schema_source?: SchemaSourceConfig
 }
 
 export interface UserConfig {

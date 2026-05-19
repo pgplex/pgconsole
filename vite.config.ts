@@ -78,6 +78,7 @@ export default defineConfig(({ command }) => {
       '/query.v1.QueryService': 'http://localhost:9876',
       '/ai.v1.AIService': 'http://localhost:9876',
       '/migration.v1.MigrationService': 'http://localhost:9876',
+      '/metadata.v1.MetadataService': 'http://localhost:9876',
     },
   },
   }

@@ -1,6 +1,8 @@
 services:
   pgconsole:
-    image: pgplex/pgconsole
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
       - "9876:9876"
     configs:

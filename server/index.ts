@@ -69,7 +69,8 @@ app.use((req, res, next) => {
       req.path.startsWith('/connection.v1.') ||
       req.path.startsWith('/query.v1.') ||
       req.path.startsWith('/ai.v1.') ||
-      req.path.startsWith('/migration.v1.')) {
+      req.path.startsWith('/migration.v1.') ||
+      req.path.startsWith('/metadata.v1.')) {
     return next()
   }
   res.sendFile(path.join(clientDir, 'index.html'))
