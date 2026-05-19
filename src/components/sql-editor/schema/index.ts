@@ -1,4 +1,5 @@
 export { TableSchemaContent } from './TableSchemaContent'
 export { ViewSchemaContent } from './ViewSchemaContent'
 export { FunctionSchemaContent } from './FunctionSchemaContent'
+export { MigrationPanel } from './MigrationPanel'
 export * from './shared'

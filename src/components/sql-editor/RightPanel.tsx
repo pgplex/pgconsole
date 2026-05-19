@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils'
 import { Chat } from './Chat'
 import { ContextPanel } from './ContextPanel'
+import { MigrationPanel } from './schema'
 import type { SelectedObject } from './SQLEditorLayout'
 import type { PanelTab } from './hooks/useEditorTabs'
 import type { ObjectType } from './ObjectTree'
@@ -53,11 +54,25 @@ export function RightPanel({ open, width, activeTab, onActiveTabChange, connecti
           >
             Chat
           </button>
+          <button
+            type="button"
+            onClick={() => onActiveTabChange('migration')}
+            className={cn(
+              "px-3 py-1 text-xs font-medium",
+              activeTab === 'migration'
+                ? "text-foreground border-b-2 border-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Migration
+          </button>
         </div>
       </div>
       <div className="flex-1 flex flex-col min-h-0">
         {activeTab === 'context' ? (
           <ContextPanel connectionId={connectionId} selectedObject={selectedObject} onViewSchema={onViewSchema} />
+        ) : activeTab === 'migration' ? (
+          <MigrationPanel connectionId={connectionId} />
         ) : (
           <Chat connectionId={connectionId} onInsertSQL={onInsertSQL} onRunSQL={onRunSQL} selectedSchema={selectedSchema} initialPrompt={initialPrompt} onInitialPromptProcessed={onInitialPromptProcessed} />
         )}

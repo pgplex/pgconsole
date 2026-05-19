@@ -54,7 +54,7 @@ export interface TabState {
   foldedRanges?: string[] // Array of "from:to" strings for folded regions
 }
 
-export type PanelTab = 'context' | 'chat'
+export type PanelTab = 'context' | 'chat' | 'migration'
 
 export interface RightPanelState {
   open: boolean

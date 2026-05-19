@@ -10,6 +10,13 @@ export interface LabelConfig {
   color: string
 }
 
+export interface SchemaSourceConfig {
+  repo: string
+  branch?: string
+  path: string
+  schema: string
+}
+
 export interface ConnectionConfig {
   id: string
   name: string
@@ -26,6 +33,7 @@ export interface ConnectionConfig {
   lock_timeout?: string
   statement_timeout?: string
   lazy?: boolean
+  schema_source?: SchemaSourceConfig
 }
 
 export interface UserConfig {
@@ -406,6 +414,24 @@ export async function loadConfigFromString(content: string): Promise<void> {
       }
     }
 
+    // Parse schema_source if provided
+    let schemaSource: SchemaSourceConfig | undefined = undefined
+    const rawSchemaSource = c.schema_source as Record<string, unknown> | undefined
+    if (rawSchemaSource) {
+      if (!rawSchemaSource.repo || typeof rawSchemaSource.repo !== 'string') {
+        throw new Error(`Connection ${c.id} schema_source.repo is required and must be a string`)
+      }
+      if (!rawSchemaSource.path || typeof rawSchemaSource.path !== 'string') {
+        throw new Error(`Connection ${c.id} schema_source.path is required and must be a string`)
+      }
+      schemaSource = {
+        repo: rawSchemaSource.repo,
+        branch: typeof rawSchemaSource.branch === 'string' ? rawSchemaSource.branch : undefined,
+        path: rawSchemaSource.path,
+        schema: typeof rawSchemaSource.schema === 'string' ? rawSchemaSource.schema : 'public',
+      }
+    }
+
     connections.push({
       id: c.id,
       name: c.name,
@@ -422,6 +448,7 @@ export async function loadConfigFromString(content: string): Promise<void> {
       lock_timeout: typeof c.lock_timeout === 'string' ? c.lock_timeout : undefined,
       statement_timeout: typeof c.statement_timeout === 'string' ? c.statement_timeout : undefined,
       lazy: c.lazy === true,
+      schema_source: schemaSource,
     })
   }
 

@@ -1,13 +1,25 @@
 import { expressConnectMiddleware } from "@connectrpc/connect-express";
+import type { Interceptor } from "@connectrpc/connect";
 import type { Request } from "express";
 import { ConnectionService } from "../src/gen/connection_connect";
 import { QueryService } from "../src/gen/query_connect";
 import { AIService } from "../src/gen/ai_connect";
+import { MigrationService } from "../src/gen/migration_connect";
 import { connectionServiceHandlers } from "./services/connection-service";
 import { queryServiceHandlers } from "./services/query-service";
 import { aiServiceHandlers } from "./services/ai-service";
+import { migrationServiceHandlers } from "./services/migration-service";
 import { getCurrentUser, type User } from "./lib/auth";
 import { isAuthEnabled } from "./lib/config";
+
+const loggingInterceptor: Interceptor = (next) => async (req) => {
+  try {
+    return await next(req)
+  } catch (err) {
+    console.error(`[RPC] ${req.service.typeName}/${req.method.name}:`, err)
+    throw err
+  }
+}
 
 // Helper to get user from ConnectRPC context
 // Note: contextValues may be a Promise if contextValues factory is async
@@ -25,9 +37,10 @@ const GUEST_USER: User = { email: 'guest', name: 'Guest' }
  */
 export const connectRouter = expressConnectMiddleware({
   routes: (router) => {
-    router.service(ConnectionService, connectionServiceHandlers);
-    router.service(QueryService, queryServiceHandlers);
-    router.service(AIService, aiServiceHandlers);
+    router.service(ConnectionService, connectionServiceHandlers, { interceptors: [loggingInterceptor] });
+    router.service(QueryService, queryServiceHandlers, { interceptors: [loggingInterceptor] });
+    router.service(AIService, aiServiceHandlers, { interceptors: [loggingInterceptor] });
+    router.service(MigrationService, migrationServiceHandlers, { interceptors: [loggingInterceptor] });
   },
   // Set max message size to ~4GB for large query results
   readMaxBytes: 0xffffffff,
