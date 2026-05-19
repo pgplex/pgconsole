@@ -108,7 +108,7 @@ export const migrationServiceHandlers: ServiceImpl<typeof MigrationService> = {
     const outputJsonPath = join(tmpdir(), `pgconsole-plan-${randomUUID()}.json`)
 
     try {
-      await runPgSchemaPlan(conn, schemaFilePath, outputJsonPath, pgSchema)
+      await runPgSchemaPlan(conn, schemaFilePath, outputJsonPath, pgSchema, repoDir)
     } catch (err) {
       throw new ConnectError(
         `pgschema plan failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -190,7 +190,8 @@ export const migrationServiceHandlers: ServiceImpl<typeof MigrationService> = {
     }
 
     try {
-      await runPgSchemaApply(conn, plan.planJsonPath)
+      const repoDir = getRepoDir(req.connectionId)
+      await runPgSchemaApply(conn, plan.planJsonPath, repoDir)
     } catch (err) {
       yield {
         step: totalSteps,
