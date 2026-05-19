@@ -1,8 +1,7 @@
-> [!NOTE]
-> pgplex: Modern Developer Stack for Postgres - **pgconsole** · [pgtui](https://github.com/pgplex/pgtui) · [pgschema](https://github.com/pgplex/pgschema) · [pgparser](https://github.com/pgplex/pgparser)
+> This is a fork of [pgplex/pgconsole](https://github.com/pgplex/pgconsole), the original open-source PostgreSQL management console by [pgplex](https://github.com/pgplex). All credit for the core project goes to the original authors. This fork adds container-based deployment via GHCR and Helm chart support for internal use.
 
 <p align="center">
-  <a href="https://www.pgconsole.com">
+  <a href="https://github.com/pgplex/pgconsole">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/pgplex/pgconsole/main/src/assets/logo-dark-full.svg" />
       <img src="https://raw.githubusercontent.com/pgplex/pgconsole/main/src/assets/logo-light-full.svg" alt="pgconsole" />
@@ -16,42 +15,55 @@
 
 **pgconsole** is a web-based PostgreSQL editor. Single binary, single config file, no database required. Connect your team to PostgreSQL with access control and audit logging built in.
 
-<a href="https://www.star-history.com/?repos=pgplex%2Fpgconsole&type=date&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=pgplex/pgconsole&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=pgplex/pgconsole&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=pgplex/pgconsole&type=date&legend=top-left" />
- </picture>
-</a>
-
 ## Installation
-
-Visit https://docs.pgconsole.com/getting-started/quickstart
-
-### Prerequisites
-
-- Node.js 20+
-
-### npm
-
-```bash
-npm install -g @pgplex/pgconsole
-pgconsole --config pgconsole.toml
-```
-
-### npx
-
-```bash
-npx @pgplex/pgconsole --config pgconsole.toml
-```
 
 ### Docker
 
 ```bash
-docker run -p 9876:9876 -v /path/to/pgconsole.toml:/etc/pgconsole.toml pgplex/pgconsole
+docker run -p 9876:9876 -v /path/to/pgconsole.toml:/etc/pgconsole.toml ghcr.io/nfuchen/pgconsole
 ```
 
-Run without `--config` to start in demo mode with a bundled sample database.
+Run without a config mount to start in demo mode with a bundled sample database.
+
+### Helm
+
+```bash
+helm install pgconsole ./helm-chart
+```
+
+Override config inline:
+
+```bash
+helm install pgconsole ./helm-chart \
+  --set-file config=pgconsole.toml
+```
+
+Or customize via `values.yaml`:
+
+```yaml
+image:
+  repository: ghcr.io/nfuchen/pgconsole
+  tag: "1.3.0"
+
+config: |
+  [[connections]]
+  id = "production"
+  name = "Production"
+  host = "db.example.com"
+  port = 5432
+  database = "myapp"
+  username = "app"
+  password = "secret"
+
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - host: pgconsole.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+```
 
 ## Features
 
@@ -172,21 +184,21 @@ model = "claude-sonnet-4-20250514"
 api_key = "sk-ant-..."
 ```
 
-## Getting Help
-
-- [Docs](https://www.pgconsole.com)
-- [GitHub Issues](https://github.com/pgplex/pgconsole/issues)
-
 ## Development
 
-> [!NOTE]
-> **For external contributors**: If you want to request a feature, please create a GitHub issue to discuss first instead of creating a PR directly.
-
 ```bash
-git clone https://github.com/pgplex/pgconsole.git
+git clone https://github.com/NFUChen/pgconsole.git
 cd pgconsole
 pnpm install
 pnpm dev        # Start dev server (frontend + backend)
 pnpm build      # Production build
 pnpm test       # Run all tests
 ```
+
+## Acknowledgements
+
+This project is a fork of [pgplex/pgconsole](https://github.com/pgplex/pgconsole), built and maintained by [pgplex](https://github.com/pgplex). The upstream project provides the full documentation, issue tracker, and community:
+
+- [Upstream Repository](https://github.com/pgplex/pgconsole)
+- [Documentation](https://docs.pgconsole.com)
+- [Original Issues](https://github.com/pgplex/pgconsole/issues)
