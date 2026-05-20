@@ -285,9 +285,9 @@ export function SQLEditorLayout({
       let sql: string
 
       if (sqlType === 'select') {
-        sql = await generateSelect(objectName)
+        sql = await generateSelect(schema, objectName)
       } else if (sqlType === 'alter_add_column') {
-        sql = await generateAlterAddColumn(objectName)
+        sql = await generateAlterAddColumn(schema, objectName)
       } else if (sqlType === 'create_table') {
         sql = await generateCreateTable()
       } else {
@@ -313,7 +313,7 @@ export function SQLEditorLayout({
         }
 
         if (sqlType === 'insert') {
-          sql = await generateInsert(objectName, columns)
+          sql = await generateInsert(schema, objectName, columns)
         } else {
           // Fetch constraints for UPDATE/DELETE to find PK columns
           const constraintsResponse = await rpcClient.getConstraints({
@@ -327,9 +327,9 @@ export function SQLEditorLayout({
           const pkColumns = pkConstraint?.columns ?? []
 
           if (sqlType === 'update') {
-            sql = await generateUpdate(objectName, columns, pkColumns)
+            sql = await generateUpdate(schema, objectName, columns, pkColumns)
           } else {
-            sql = await generateDelete(objectName, pkColumns)
+            sql = await generateDelete(schema, objectName, pkColumns)
           }
         }
       }
