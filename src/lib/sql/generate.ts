@@ -14,13 +14,15 @@ export interface Column {
 const RESERVED_IDENTIFIERS = new Set([
   'all', 'analyse', 'analyze', 'and', 'any', 'array', 'as', 'asc', 'asymmetric',
   'both', 'case', 'cast', 'check', 'collate', 'column', 'constraint', 'create',
+  'cross',
   'current_catalog', 'current_date', 'current_role', 'current_time',
   'current_timestamp', 'current_user', 'default', 'deferrable', 'desc',
   'distinct', 'do', 'else', 'end', 'except', 'false', 'fetch', 'for', 'foreign',
   'from', 'grant', 'group', 'having', 'in', 'initially', 'intersect', 'into',
-  'lateral', 'leading', 'limit', 'localtime', 'localtimestamp', 'not', 'null',
+  'is', 'lateral', 'leading', 'left', 'like', 'limit', 'localtime',
+  'localtimestamp', 'not', 'notnull', 'null',
   'offset', 'on', 'only', 'or', 'order', 'placing', 'primary', 'references',
-  'returning', 'select', 'session_user', 'some', 'symmetric', 'table', 'then',
+  'returning', 'select', 'session_user', 'similar', 'some', 'symmetric', 'table', 'then',
   'to', 'trailing', 'true', 'union', 'unique', 'user', 'using', 'variadic',
   'when', 'where', 'window', 'with',
 ])
@@ -29,6 +31,10 @@ function quoteIdentifier(identifier: string): string {
   const isSafe = /^[a-z_][a-z0-9_]*$/.test(identifier) && !RESERVED_IDENTIFIERS.has(identifier)
   if (isSafe) return identifier
   return `"${identifier.replace(/"/g, '""')}"`
+}
+
+function placeholderValue(name: string): string {
+  return `'<${name.replace(/'/g, "''")}>'`
 }
 
 interface IdentifierReplacement {
@@ -103,7 +109,7 @@ export async function generateInsert(schema: string | null | undefined, table: s
   const replacements: IdentifierReplacement[] = []
   const nextToken = createTokenFactory([schema ?? '', table, ...columns.map((c) => c.name)])
   const columnNames = columns.map((c) => quoteIdentifierForFormatting(c.name, replacements, nextToken)).join(', ')
-  const valuePlaceholders = columns.map((c) => `'<${c.name}>'`).join(', ')
+  const valuePlaceholders = columns.map((c) => placeholderValue(c.name)).join(', ')
 
   const sql = `INSERT INTO ${formatTableNameForFormatting(schema, table, replacements, nextToken)} (${columnNames}) VALUES (${valuePlaceholders})`
   return formatGeneratedSql(sql, replacements)
@@ -133,12 +139,12 @@ export async function generateUpdate(
 
   const setColumns = nonPkColumns.length > 0 ? nonPkColumns : columns
   const setClause = setColumns
-    .map((c) => `${quoteIdentifierForFormatting(c.name, replacements, nextToken)} = '<${c.name}>'`)
+    .map((c) => `${quoteIdentifierForFormatting(c.name, replacements, nextToken)} = ${placeholderValue(c.name)}`)
     .join(', ')
 
   if (pkColumns.length > 0) {
     const whereClause = pkColumns
-      .map((c) => `${quoteIdentifierForFormatting(c, replacements, nextToken)} = '<${c}>'`)
+      .map((c) => `${quoteIdentifierForFormatting(c, replacements, nextToken)} = ${placeholderValue(c)}`)
       .join(' AND ')
     const sql = `UPDATE ${formatTableNameForFormatting(schema, table, replacements, nextToken)} SET ${setClause} WHERE ${whereClause}`
     return formatGeneratedSql(sql, replacements)
@@ -163,7 +169,7 @@ export async function generateDelete(
 
   if (pkColumns.length > 0) {
     const whereClause = pkColumns
-      .map((c) => `${quoteIdentifierForFormatting(c, replacements, nextToken)} = '<${c}>'`)
+      .map((c) => `${quoteIdentifierForFormatting(c, replacements, nextToken)} = ${placeholderValue(c)}`)
       .join(' AND ')
     const sql = `DELETE FROM ${formatTableNameForFormatting(schema, table, replacements, nextToken)} WHERE ${whereClause}`
     return formatGeneratedSql(sql, replacements)
