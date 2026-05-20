@@ -53,6 +53,7 @@ export interface AIProviderConfig {
   vendor: 'openai' | 'anthropic' | 'google'
   model: string
   api_key: string
+  base_url?: string
 }
 
 export interface AIConfig {
@@ -524,12 +525,26 @@ export async function loadConfigFromString(content: string): Promise<void> {
       }
       seenProviderIds.add(providerId)
 
+      let baseUrl: string | undefined
+      if (p.base_url !== undefined) {
+        if (typeof p.base_url !== 'string') {
+          throw new Error(`AI provider ${providerId} base_url must be a string`)
+        }
+        baseUrl = p.base_url.trim().replace(/\/+$/, '')
+        try {
+          new URL(baseUrl)
+        } catch {
+          throw new Error(`AI provider ${providerId} base_url is not a valid URL: ${baseUrl}`)
+        }
+      }
+
       providers.push({
         id: providerId,
         name: typeof p.name === 'string' ? p.name.trim() : providerId,
         vendor: p.vendor as 'openai' | 'anthropic' | 'google',
         model: p.model.trim(),
         api_key: p.api_key,
+        base_url: baseUrl,
       })
     }
 
