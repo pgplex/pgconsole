@@ -81,6 +81,27 @@ VALUES (
   '<from>'
 );`)
     })
+
+    it('quotes mixed-case, space, and double-quote column names in INSERT', async () => {
+      const columns = [
+        { name: 'DisplayName', type: 'text', nullable: true },
+        { name: 'User ID', type: 'integer', nullable: false },
+        { name: 'quoted"column', type: 'text', nullable: true },
+      ]
+
+      const result = await generateInsert('public', 'users', columns)
+
+      expect(result).toBe(`INSERT INTO public.users (
+  "DisplayName",
+  "User ID",
+  "quoted""column"
+)
+VALUES (
+  '<DisplayName>',
+  '<User ID>',
+  '<quoted"column>'
+);`)
+    })
   })
 
   describe('generateUpdate', () => {
@@ -147,6 +168,21 @@ SET
 WHERE
   "User ID" = '<User ID>';`)
     })
+
+    it('quotes reserved words in UPDATE', async () => {
+      const columns = [
+        { name: 'from', type: 'text', nullable: true },
+        { name: 'select', type: 'text', nullable: true },
+      ]
+
+      const result = await generateUpdate('public', 'order', columns, ['from'])
+
+      expect(result).toBe(`UPDATE public."order"
+SET
+  "select" = '<select>'
+WHERE
+  "from" = '<from>';`)
+    })
   })
 
   describe('generateDelete', () => {
@@ -170,6 +206,24 @@ WHERE
 WHERE
   user_id = '<user_id>'
   AND role_id = '<role_id>';`)
+    })
+
+    it('quotes unsafe table names and unsafe primary keys in DELETE', async () => {
+      const result = await generateDelete('public', 'Audit Log', ['User ID', 'quoted"key'])
+
+      expect(result).toBe(`DELETE FROM public."Audit Log"
+WHERE
+  "User ID" = '<User ID>'
+  AND "quoted""key" = '<quoted"key>';`)
+    })
+
+    it('quotes reserved words in DELETE primary keys', async () => {
+      const result = await generateDelete('public', 'order', ['select', 'from'])
+
+      expect(result).toBe(`DELETE FROM public."order"
+WHERE
+  "select" = '<select>'
+  AND "from" = '<from>';`)
     })
   })
 })
