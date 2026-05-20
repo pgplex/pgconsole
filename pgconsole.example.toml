@@ -34,6 +34,7 @@
 # vendor = "openai"
 # model = "gpt-4o"
 # api_key = "sk-..."
+# base_url = "https://litellm.example.com/v1"  # Optional - for LiteLLM, gateways, or local proxies
 #
 # [[ai.providers]]
 # id = "claude"
@@ -41,6 +42,7 @@
 # vendor = "anthropic"
 # model = "claude-sonnet-4-20250514"
 # api_key = "sk-ant-..."
+# base_url = "https://api.anthropic.com"  # Optional - for LiteLLM, gateways, or local proxies
 #
 # [[ai.providers]]
 # id = "gemini"
@@ -48,6 +50,7 @@
 # vendor = "google"
 # model = "gemini-1.5-pro"
 # api_key = "AIza..."
+# base_url = "https://generativelanguage.googleapis.com/v1beta"  # Optional - for LiteLLM, gateways, or local proxies
 
 # =============================================================================
 # Labels for organizing connections
