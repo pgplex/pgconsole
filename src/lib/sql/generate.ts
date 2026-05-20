@@ -50,7 +50,7 @@ function createTokenFactory(identifiers: string[]) {
     do {
       token = `pgconsole_ident_${index}_token`
       index += 1
-    } while (used.has(token))
+    } while ([...used].some((identifier) => identifier.includes(token)))
     used.add(token)
     return token
   }

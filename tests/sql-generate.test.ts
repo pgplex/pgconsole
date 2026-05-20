@@ -102,6 +102,24 @@ VALUES (
   '<quoted"column>'
 );`)
     })
+
+    it('does not corrupt safe identifiers containing internal replacement tokens', async () => {
+      const columns = [
+        { name: 'User ID', type: 'integer', nullable: false },
+        { name: 'xpgconsole_ident_0_tokeny', type: 'text', nullable: true },
+      ]
+
+      const result = await generateInsert('public', 'users', columns)
+
+      expect(result).toBe(`INSERT INTO public.users (
+  "User ID",
+  xpgconsole_ident_0_tokeny
+)
+VALUES (
+  '<User ID>',
+  '<xpgconsole_ident_0_tokeny>'
+);`)
+    })
   })
 
   describe('generateUpdate', () => {
