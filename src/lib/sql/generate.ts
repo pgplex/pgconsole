@@ -31,11 +31,6 @@ function quoteIdentifier(identifier: string): string {
   return `"${identifier.replace(/"/g, '""')}"`
 }
 
-function formatTableName(schema: string | null | undefined, table: string): string {
-  const quotedTable = quoteIdentifier(table)
-  return schema ? `${quoteIdentifier(schema)}.${quotedTable}` : quotedTable
-}
-
 interface IdentifierReplacement {
   token: string
   quoted: string
@@ -191,6 +186,8 @@ export async function generateCreateTable(): Promise<string> {
  * Generate an ALTER TABLE ADD COLUMN statement.
  */
 export async function generateAlterAddColumn(schema: string | null | undefined, table: string): Promise<string> {
-  const sql = `ALTER TABLE ${formatTableName(schema, table)} ADD COLUMN column_name data_type`
-  return formatSql(sql)
+  const replacements: IdentifierReplacement[] = []
+  const nextToken = createTokenFactory([schema ?? '', table])
+  const sql = `ALTER TABLE ${formatTableNameForFormatting(schema, table, replacements, nextToken)} ADD COLUMN column_name data_type`
+  return formatGeneratedSql(sql, replacements)
 }

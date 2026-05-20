@@ -4,6 +4,7 @@ import {
   generateInsert,
   generateUpdate,
   generateDelete,
+  generateAlterAddColumn,
 } from '../src/lib/sql/generate'
 
 describe('SQL generators', () => {
@@ -242,6 +243,22 @@ WHERE
 WHERE
   "select" = '<select>'
   AND "from" = '<from>';`)
+    })
+  })
+
+  describe('generateAlterAddColumn', () => {
+    it('quotes mixed-case table names in ALTER TABLE ADD COLUMN', async () => {
+      const result = await generateAlterAddColumn('public', 'Accounts')
+
+      expect(result).toBe(`ALTER TABLE public."Accounts"
+  ADD COLUMN column_name data_type;`)
+    })
+
+    it('quotes unsafe schema and table names in ALTER TABLE ADD COLUMN', async () => {
+      const result = await generateAlterAddColumn('Tenant Schema', 'Audit Log')
+
+      expect(result).toBe(`ALTER TABLE "Tenant Schema"."Audit Log"
+  ADD COLUMN column_name data_type;`)
     })
   })
 })
