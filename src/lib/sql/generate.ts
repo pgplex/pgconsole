@@ -13,18 +13,19 @@ export interface Column {
 
 const RESERVED_IDENTIFIERS = new Set([
   'all', 'analyse', 'analyze', 'and', 'any', 'array', 'as', 'asc', 'asymmetric',
-  'both', 'case', 'cast', 'check', 'collate', 'column', 'constraint', 'create',
-  'cross',
+  'authorization', 'between', 'binary', 'both', 'case', 'cast', 'check',
+  'collate', 'column', 'concurrently', 'constraint', 'create', 'cross',
   'current_catalog', 'current_date', 'current_role', 'current_time',
   'current_timestamp', 'current_user', 'default', 'deferrable', 'desc',
-  'distinct', 'do', 'else', 'end', 'except', 'false', 'fetch', 'for', 'foreign',
-  'from', 'grant', 'group', 'having', 'in', 'initially', 'intersect', 'into',
-  'is', 'lateral', 'leading', 'left', 'like', 'limit', 'localtime',
-  'localtimestamp', 'not', 'notnull', 'null',
-  'offset', 'on', 'only', 'or', 'order', 'placing', 'primary', 'references',
-  'returning', 'select', 'session_user', 'similar', 'some', 'symmetric', 'table', 'then',
-  'to', 'trailing', 'true', 'union', 'unique', 'user', 'using', 'variadic',
-  'when', 'where', 'window', 'with',
+  'distinct', 'do', 'else', 'end', 'except', 'false', 'fetch', 'for',
+  'foreign', 'freeze', 'from', 'full', 'grant', 'group', 'having', 'ilike',
+  'in', 'initially', 'inner', 'intersect', 'into', 'is', 'isnull', 'join',
+  'lateral', 'leading', 'left', 'like', 'limit', 'localtime', 'localtimestamp',
+  'natural', 'not', 'notnull', 'null', 'offset', 'on', 'only', 'or', 'order',
+  'outer', 'overlaps', 'placing', 'primary', 'references', 'right',
+  'returning', 'select', 'session_user', 'similar', 'some', 'symmetric',
+  'table', 'tablesample', 'then', 'to', 'trailing', 'true', 'union', 'unique',
+  'user', 'using', 'variadic', 'verbose', 'when', 'where', 'window', 'with',
 ])
 
 function quoteIdentifier(identifier: string): string {

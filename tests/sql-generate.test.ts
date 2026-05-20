@@ -110,6 +110,33 @@ VALUES (
 );`)
     })
 
+    it('quotes join-related SQL grammar words in INSERT identifiers', async () => {
+      const columns = [
+        { name: 'join', type: 'text', nullable: true },
+        { name: 'inner', type: 'text', nullable: true },
+        { name: 'right', type: 'text', nullable: true },
+        { name: 'full', type: 'text', nullable: true },
+        { name: 'outer', type: 'text', nullable: true },
+      ]
+
+      const result = await generateInsert('public', 'natural', columns)
+
+      expect(result).toBe(`INSERT INTO public."natural" (
+  "join",
+  "inner",
+  "right",
+  "full",
+  "outer"
+)
+VALUES (
+  '<join>',
+  '<inner>',
+  '<right>',
+  '<full>',
+  '<outer>'
+);`)
+    })
+
     it('escapes single quotes in INSERT placeholders', async () => {
       const columns = [
         { name: "customer's name", type: 'text', nullable: true },
@@ -260,6 +287,21 @@ WHERE
   "like" = '<like>';`)
     })
 
+    it('quotes comparison grammar words in UPDATE identifiers', async () => {
+      const columns = [
+        { name: 'between', type: 'text', nullable: true },
+        { name: 'ilike', type: 'text', nullable: true },
+      ]
+
+      const result = await generateUpdate('public', 'overlaps', columns, ['between'])
+
+      expect(result).toBe(`UPDATE public."overlaps"
+SET
+  "ilike" = '<ilike>'
+WHERE
+  "between" = '<between>';`)
+    })
+
     it('escapes single quotes in UPDATE placeholders', async () => {
       const columns = [
         { name: "customer's name", type: 'text', nullable: true },
@@ -324,6 +366,15 @@ WHERE
 WHERE
   "notnull" = '<notnull>'
   AND "similar" = '<similar>';`)
+    })
+
+    it('quotes additional SQL grammar words in DELETE identifiers', async () => {
+      const result = await generateDelete('public', 'join', ['natural', 'overlaps'])
+
+      expect(result).toBe(`DELETE FROM public."join"
+WHERE
+  "natural" = '<natural>'
+  AND "overlaps" = '<overlaps>';`)
     })
 
     it('escapes single quotes in DELETE placeholders', async () => {
