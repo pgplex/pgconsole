@@ -1,4 +1,5 @@
 import type { ColumnMetadata } from '@/components/sql-editor/hooks/useEditorTabs'
+import { createId } from '@/lib/create-id'
 
 export type StagedChangeType = 'delete' | 'update' | 'insert'
 
@@ -138,7 +139,7 @@ export function createStagedDelete(
   }
 
   return {
-    id: crypto.randomUUID(),
+    id: createId(),
     type: 'delete',
     tables,
     rowCount: selectedRows.length,
@@ -263,7 +264,7 @@ export function createStagedInsert(
   }
 
   return {
-    id: crypto.randomUUID(),
+    id: createId(),
     type: 'insert',
     tables,
     rowCount: rows.length,
@@ -323,7 +324,7 @@ export function createStagedUpdate(
   }
 
   return {
-    id: crypto.randomUUID(),
+    id: createId(),
     type: 'update',
     tables,
     rowCount: 1,

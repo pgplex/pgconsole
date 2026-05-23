@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, useEffect } from 'react'
 import type { ObjectType } from '../ObjectTree' // Used for SchemaTab.objectType
+import { createId } from '@/lib/create-id'
 
 export interface QueryTab {
   type: 'query'
@@ -430,7 +431,7 @@ export function useEditorTabs(connectionId: string) {
         title += ' (cancelled)'
       }
       return {
-        id: crypto.randomUUID(),
+        id: createId(),
         title,
         result,
         sql: options?.sql,
