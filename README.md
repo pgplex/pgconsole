@@ -1,5 +1,7 @@
 > [!NOTE]
 > pgplex: Modern Developer Stack for Postgres - **pgconsole** · [pgtui](https://github.com/pgplex/pgtui) · [pgschema](https://github.com/pgplex/pgschema) · [pgparser](https://github.com/pgplex/pgparser)
+>
+> Brought to you by [Bytebase](https://www.bytebase.com/), open-source database DevSecOps platform.
 
 <p align="center">
   <a href="https://www.pgconsole.com">
@@ -190,3 +192,8 @@ pnpm dev        # Start dev server (frontend + backend)
 pnpm build      # Production build
 pnpm test       # Run all tests
 ```
+## Sponsor
+
+[Bytebase](https://www.bytebase.com?utm_sourcepgconsole) - open source, web-based database DevSecOps platform.
+
+<a href="https://www.bytebase.com?utm_sourcepgconsole"><img src="https://raw.githubusercontent.com/pgplex/pgschema/main/docs/images/bytebase.webp" /></a>
