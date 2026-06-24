@@ -6,11 +6,21 @@ import { useSession, signOut } from '@/lib/auth-client';
 import { useSubscriptionModal } from '@/hooks/useSubscriptionModal';
 import { useOwner } from '@/hooks/useOwner';
 import { useSetting } from '@/hooks/useSetting';
+import { useConnections } from '@/hooks/useQuery';
 import UserAvatar from './UserAvatar';
 import logoFull from '@/assets/logo-light-full.svg';
 
 interface HeaderProps {
   selectedConnectionId: string
+}
+
+// ~10% opacity (hex alpha) for a subtle tint wash that keeps dark text legible.
+const TINT_ALPHA = '1A';
+
+// Expand #abc to #aabbcc so we can append an alpha suffix.
+function expandHex(hex: string): string {
+  const h = hex.replace('#', '');
+  return h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
 }
 
 export default function Header({ selectedConnectionId }: HeaderProps) {
@@ -19,9 +29,17 @@ export default function Header({ selectedConnectionId }: HeaderProps) {
   const subscriptionModal = useSubscriptionModal();
   const isOwner = useOwner();
   const { branding } = useSetting();
+  const { data: connections } = useConnections();
 
   const isGuest = user?.email === 'guest';
   const showSignIn = !user && authEnabled;
+
+  // Per-connection environment tint: subtle background wash + full-strength bottom border,
+  // so dark header text stays legible for any user-chosen hue.
+  const tint = connections?.find((c) => c.id === selectedConnectionId)?.color;
+  const tintStyle = tint
+    ? { backgroundColor: `#${expandHex(tint)}${TINT_ALPHA}`, borderBottom: `2px solid ${tint}` }
+    : undefined;
 
   const handleSignOut = async () => {
     await signOut();
@@ -29,7 +47,10 @@ export default function Header({ selectedConnectionId }: HeaderProps) {
   };
 
   return (
-    <header className="h-12 bg-gray-100 border-b border-gray-300 flex items-center px-3 justify-between">
+    <header
+      className={`h-12 flex items-center px-3 justify-between ${tint ? '' : 'bg-gray-100 border-b border-gray-300'}`}
+      style={tintStyle}
+    >
       <ConnectionSwitcher selectedConnectionId={selectedConnectionId} />
 
       <div className="flex items-center gap-1.5">

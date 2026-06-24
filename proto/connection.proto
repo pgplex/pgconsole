@@ -27,6 +27,7 @@ message Connection {
   repeated Label labels = 10;
   string version = 11; // PostgreSQL version (e.g., "16")
   repeated string permissions = 12;
+  string color = 13; // Optional per-connection environment tint (hex)
 }
 
 message ListConnectionsRequest {}

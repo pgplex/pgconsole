@@ -217,6 +217,7 @@ If connecting to a database on your host machine from Docker, use `host.docker.i
 | `ssl_cert` | Path to client certificate | | |
 | `ssl_key` | Path to client private key | | |
 | `labels` | Array of label IDs | | `[]` |
+| `color` | Hex color (e.g. `#dc2626`) that tints the header to flag the environment (e.g. red for production) | | |
 | `lock_timeout` | [`lock_timeout`](https://www.postgresql.org/docs/current/runtime-config-client.html#GUC-LOCK-TIMEOUT), e.g. `"5s"` | | System default |
 | `statement_timeout` | [`statement_timeout`](https://www.postgresql.org/docs/current/runtime-config-client.html#GUC-STATEMENT-TIMEOUT), e.g. `"30s"` | | System default |
 | `lazy` | Skip connection test on startup | | `false` |
@@ -235,6 +236,7 @@ ssl_ca = "/path/to/ca.crt"
 ssl_cert = "/path/to/client.crt"
 ssl_key = "/path/to/client.key"
 labels = ["prod"]
+color = "#dc2626"
 lock_timeout = "5s"
 statement_timeout = "30s"
 ```

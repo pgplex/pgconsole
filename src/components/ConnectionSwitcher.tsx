@@ -114,7 +114,7 @@ export function ConnectionSwitcher({ selectedConnectionId }: ConnectionSwitcherP
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="!h-auto !py-1 !px-2 gap-1"
+                  className="!h-auto !py-1 !px-2 gap-1 hover:bg-transparent data-pressed:bg-transparent"
                 />
               }
             />
