@@ -22,7 +22,7 @@ interface KeyboardShortcutsContextValue {
 
 const KeyboardShortcutsContext = createContext<KeyboardShortcutsContextValue | null>(null)
 
-function isEditableElement(element: EventTarget | null): boolean {
+export function isEditableElement(element: EventTarget | null): boolean {
   if (!element || !(element instanceof HTMLElement)) return false
   return (
     element instanceof HTMLInputElement ||
