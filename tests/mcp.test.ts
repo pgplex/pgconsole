@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { loadConfigFromString, getMcpTokens, resolveMcpTokenEmail } from '../server/lib/config'
-import { selectToolNames } from '../server/mcp'
+import { loadConfigFromString, getAgents, getAgentById, getAgentByToken } from '../server/lib/config'
+import { selectToolNames, Principal } from '../server/mcp'
 import type { Permission } from '../server/lib/config'
 
 const BASE = `
@@ -8,67 +8,134 @@ const BASE = `
 jwt_secret = "test-secret-key-at-least-32-characters-long"
 
 [[users]]
-email = "agent@example.com"
+email = "alice@example.com"
 password = "pw"
+
+[[connections]]
+id = "prod"
+name = "Prod"
+host = "localhost"
+port = 5432
+database = "postgres"
+username = "postgres"
+lazy = true
+
+[[connections]]
+id = "staging"
+name = "Staging"
+host = "localhost"
+port = 5432
+database = "postgres"
+username = "postgres"
+lazy = true
 `
 
-describe('MCP token config', () => {
-  it('parses [[mcp.tokens]] and resolves a token to its email', async () => {
+describe('agent config', () => {
+  it('parses a pure agent and resolves its token', async () => {
     await loadConfigFromString(`${BASE}
-[[mcp.tokens]]
-token = "pgc_secret_token"
-email = "agent@example.com"
+[[agents]]
+id = "migration-bot"
+name = "Nightly Migration Bot"
+token = "pgc_pure"
 `)
-    expect(getMcpTokens()).toHaveLength(1)
-    expect(resolveMcpTokenEmail('pgc_secret_token')).toBe('agent@example.com')
+    expect(getAgents()).toHaveLength(1)
+    const agent = getAgentByToken('pgc_pure')
+    expect(agent?.id).toBe('migration-bot')
+    expect(agent?.onBehalfOf).toBeUndefined()
+    expect(getAgentById('migration-bot')?.name).toBe('Nightly Migration Bot')
+  })
+
+  it('parses a delegated agent with caps', async () => {
+    await loadConfigFromString(`${BASE}
+[[agents]]
+id = "alice-claude"
+token = "pgc_deleg"
+on_behalf_of = "alice@example.com"
+permissions = ["read"]
+connections = ["prod"]
+`)
+    const agent = getAgentByToken('pgc_deleg')!
+    expect(agent.onBehalfOf).toBe('alice@example.com')
+    expect(agent.permissions).toEqual(['read'])
+    expect(agent.connections).toEqual(['prod'])
   })
 
   it('returns undefined for an unknown token', async () => {
     await loadConfigFromString(`${BASE}
-[[mcp.tokens]]
+[[agents]]
+id = "bot"
 token = "known"
-email = "agent@example.com"
 `)
-    expect(resolveMcpTokenEmail('not-a-token')).toBeUndefined()
+    expect(getAgentByToken('nope')).toBeUndefined()
   })
 
-  it('has no tokens when [mcp] is absent', async () => {
-    await loadConfigFromString(BASE)
-    expect(getMcpTokens()).toEqual([])
-    expect(resolveMcpTokenEmail('anything')).toBeUndefined()
-  })
-
-  it('rejects a token entry missing email', async () => {
-    await expect(
-      loadConfigFromString(`${BASE}
-[[mcp.tokens]]
-token = "only-token"
-`)
-    ).rejects.toThrow(/missing required field: email/)
-  })
-
-  it('rejects an invalid email', async () => {
-    await expect(
-      loadConfigFromString(`${BASE}
-[[mcp.tokens]]
+  it('allows an agent: member in IAM rules', async () => {
+    await loadConfigFromString(`${BASE}
+[[agents]]
+id = "bot"
 token = "t"
-email = "not-an-email"
+
+[[iam]]
+connection = "staging"
+permissions = ["read", "ddl"]
+members = ["agent:bot"]
 `)
-    ).rejects.toThrow(/invalid email/)
+    expect(getAgents()).toHaveLength(1)
   })
 
-  it('rejects duplicate tokens', async () => {
-    await expect(
-      loadConfigFromString(`${BASE}
-[[mcp.tokens]]
-token = "dup"
-email = "agent@example.com"
+  describe('validation', () => {
+    const cases: Array<[string, RegExp]> = [
+      ['[[agents]]\nid = "x"', /missing required field: token/],
+      ['[[agents]]\ntoken = "x"', /missing required field: id/],
+      ['[[agents]]\nid = "a"\ntoken = "t1"\n[[agents]]\nid = "b"\ntoken = "t1"', /Duplicate agent token/],
+      ['[[agents]]\nid = "a"\ntoken = "t1"\n[[agents]]\nid = "a"\ntoken = "t2"', /Duplicate agent id/],
+      ['[[agents]]\nid = "a"\ntoken = "t"\non_behalf_of = "ghost@example.com"', /references unknown user/],
+      ['[[agents]]\nid = "a"\ntoken = "t"\npermissions = ["read"]', /requires on_behalf_of/],
+      ['[[agents]]\nid = "a"\ntoken = "t"\non_behalf_of = "alice@example.com"\nconnections = ["ghost"]', /references unknown connection/],
+      ['[[iam]]\nconnection = "prod"\npermissions = ["read"]\nmembers = ["agent:ghost"]', /references unknown agent/],
+    ]
+    it.each(cases)('rejects: %s', async (snippet, pattern) => {
+      await expect(loadConfigFromString(`${BASE}\n${snippet}`)).rejects.toThrow(pattern)
+    })
+  })
+})
 
-[[mcp.tokens]]
-token = "dup"
-email = "agent@example.com"
+describe('Principal permission resolution', () => {
+  // On the FREE plan IAM is not enforced, so getUserPermissions returns the full set —
+  // which lets us verify that a delegated agent's caps actually narrow that base.
+  it('delegated caps narrow the user grant (permission cap)', async () => {
+    await loadConfigFromString(`${BASE}
+[[agents]]
+id = "alice-claude"
+token = "t"
+on_behalf_of = "alice@example.com"
+permissions = ["read", "explain"]
 `)
-    ).rejects.toThrow(/Duplicate MCP token/)
+    const p = new Principal(getAgentByToken('t')!)
+    expect(p.permissions('prod')).toEqual(new Set<Permission>(['read', 'explain']))
+    expect(p.auditActor).toBe('alice@example.com')
+  })
+
+  it('delegated connection cap blocks other connections', async () => {
+    await loadConfigFromString(`${BASE}
+[[agents]]
+id = "alice-claude"
+token = "t"
+on_behalf_of = "alice@example.com"
+connections = ["prod"]
+`)
+    const p = new Principal(getAgentByToken('t')!)
+    expect(p.permissions('prod').size).toBeGreaterThan(0)
+    expect(p.permissions('staging')).toEqual(new Set())
+  })
+
+  it('a pure agent audits as agent:<id>', async () => {
+    await loadConfigFromString(`${BASE}
+[[agents]]
+id = "bot"
+token = "t"
+`)
+    expect(new Principal(getAgentByToken('t')!).auditActor).toBe('agent:bot')
   })
 })
 
@@ -83,7 +150,7 @@ describe('selectToolNames', () => {
     expect(selectToolNames(true, perms())).toEqual(['list_connections', 'list_objects', 'describe_table'])
   })
 
-  it('a read-only token sees the read execution tool but not write/ddl', () => {
+  it('a read-only agent sees query/explain but not write/ddl', () => {
     const names = selectToolNames(true, perms('read', 'explain'))
     expect(names).toContain('query')
     expect(names).toContain('explain_query')
@@ -91,14 +158,11 @@ describe('selectToolNames', () => {
     expect(names).not.toContain('run_ddl')
   })
 
-  it('a write token additionally sees write_data', () => {
-    const names = selectToolNames(true, perms('read', 'write'))
-    expect(names).toContain('query')
-    expect(names).toContain('write_data')
-    expect(names).not.toContain('run_ddl')
+  it('a write agent additionally sees write_data', () => {
+    expect(selectToolNames(true, perms('read', 'write'))).toContain('write_data')
   })
 
-  it('a ddl token sees run_ddl', () => {
+  it('a ddl agent sees run_ddl', () => {
     expect(selectToolNames(true, perms('ddl'))).toContain('run_ddl')
   })
 })

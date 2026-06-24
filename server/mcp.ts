@@ -1,17 +1,19 @@
 // Remote MCP server exposing pgconsole's governed Postgres access to external AI agents.
 //
 // Transport: Streamable HTTP mounted on the Express app (stateless, JSON responses).
-// Identity:  Authorization: Bearer <token> → user email (see [[mcp.tokens]] in config).
+// Identity:  Authorization: Bearer <token> → an agent (see [[agents]] in config). An agent is
+//   either a standalone service account (authorized by `agent:<id>` IAM rules) or delegated
+//   on behalf of a user (inheriting that user's grant, narrowed by optional caps).
 // Governance: every tool reuses the existing IAM + per-statement SQL permission detection
-//   + audit path. The advertised tool list is filtered per token; each execution tool also
+//   + audit path. The advertised tool list is filtered per agent; each execution tool also
 //   re-checks the permission on the specific connection before running.
 import express, { type Request, type Response } from 'express'
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { CallToolRequestSchema, ListToolsRequestSchema, ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js'
-import { getConnections, resolveMcpTokenEmail } from './lib/config'
+import { getConnections, getAgentByToken, type AgentConfig } from './lib/config'
 import { withConnection, buildConnectionDetails, type ConnectionDetails } from './lib/db'
-import { getUserPermissions, requireAnyPermission, requirePermission, requirePermissions, type Permission } from './lib/iam'
+import { getUserPermissions, getAgentPermissions, type Permission } from './lib/iam'
 import { detectRequiredPermissions } from './lib/sql-permissions'
 import { auditSQL } from './lib/audit'
 
@@ -20,20 +22,69 @@ declare const __APP_VERSION__: string
 const MCP_PATH = '/mcp'
 const PAGE_SIZE = 100
 
-type User = { email: string }
+// A resolved MCP caller. Copies only the fields it needs from the AgentConfig so the
+// per-request server closure doesn't retain the whole config.
+export class Principal {
+  readonly agentId: string
+  readonly auditActor: string // human email (delegated) or `agent:<id>` (pure)
+  private readonly onBehalfOf?: string
+  private readonly permCap?: Set<Permission>
+  private readonly connCap?: Set<string>
 
-// Permissions the token holds across all connections it can access (union), and whether
-// it can access any connection at all. One permission lookup per connection.
-function tokenAccess(email: string): { hasAccessible: boolean; union: Set<Permission> } {
+  constructor(agent: AgentConfig) {
+    this.agentId = agent.id
+    this.onBehalfOf = agent.onBehalfOf
+    this.permCap = agent.permissions ? new Set(agent.permissions) : undefined
+    this.connCap = agent.connections ? new Set(agent.connections) : undefined
+    this.auditActor = agent.onBehalfOf ?? `agent:${agent.id}`
+  }
+
+  // Effective permissions on a connection. Pure agents resolve via `agent:` IAM rules;
+  // delegated agents inherit the user's grant, narrowed by the connection/permission caps.
+  permissions(connectionId: string): Set<Permission> {
+    if (this.onBehalfOf) {
+      if (this.connCap && !this.connCap.has(connectionId)) return new Set()
+      const base = getUserPermissions(this.onBehalfOf, connectionId)
+      if (!this.permCap) return base
+      return new Set([...base].filter((p) => this.permCap!.has(p)))
+    }
+    return getAgentPermissions(this.agentId, connectionId)
+  }
+}
+
+// Connections the agent can touch and the union of its permissions across them. One
+// permission lookup per connection.
+function agentAccess(principal: Principal): { hasAccessible: boolean; union: Set<Permission> } {
   const union = new Set<Permission>()
   let hasAccessible = false
   for (const c of getConnections()) {
-    const perms = getUserPermissions(email, c.id)
+    const perms = principal.permissions(c.id)
     if (perms.size === 0) continue
     hasAccessible = true
     for (const p of perms) union.add(p)
   }
   return { hasAccessible, union }
+}
+
+// ---- Per-connection permission enforcement (mirrors iam.ts requireX, principal-aware) ----
+
+function requireAny(principal: Principal, connectionId: string): void {
+  if (principal.permissions(connectionId).size === 0) {
+    throw new Error('Connection not found or not accessible')
+  }
+}
+
+function requireOne(have: Set<Permission>, permission: Permission, action: string): void {
+  if (!have.has(permission)) {
+    throw new Error(`Permission denied: ${action} requires '${permission}' permission`)
+  }
+}
+
+function requireAll(have: Set<Permission>, needed: Set<Permission>, action: string): void {
+  const missing = [...needed].filter((p) => !have.has(p))
+  if (missing.length > 0) {
+    throw new Error(`Permission denied: ${action} requires '${missing.join("', '")}' permission`)
+  }
 }
 
 // ---- Tool definitions (JSON Schema) ----
@@ -141,9 +192,9 @@ export function selectToolNames(hasAccessibleConnection: boolean, union: Set<Per
   return names
 }
 
-// Advertise only the tools this token's permissions unlock.
-function listToolsFor(email: string) {
-  const { hasAccessible, union } = tokenAccess(email)
+// Advertise only the tools this agent's permissions unlock.
+function listToolsFor(principal: Principal) {
+  const { hasAccessible, union } = agentAccess(principal)
   return selectToolNames(hasAccessible, union).map((name) => TOOLS[name as keyof typeof TOOLS])
 }
 
@@ -176,9 +227,9 @@ function optStr(args: Record<string, unknown>, name: string): string | undefined
 
 // ---- Tool implementations ----
 
-async function listConnections(user: User) {
+async function listConnections(principal: Principal) {
   const connections = getConnections()
-    .map((c) => ({ c, perms: getUserPermissions(user.email, c.id) }))
+    .map((c) => ({ c, perms: principal.permissions(c.id) }))
     .filter(({ perms }) => perms.size > 0)
     .map(({ c, perms }) => ({
       id: c.id,
@@ -191,9 +242,9 @@ async function listConnections(user: User) {
   return { connections }
 }
 
-async function listObjects(user: User, args: Record<string, unknown>) {
+async function listObjects(principal: Principal, args: Record<string, unknown>) {
   const connection = reqStr(args, 'connection')
-  requireAnyPermission(user, connection)
+  requireAny(principal, connection)
   const details = buildConnectionDetails(connection)
   if (!details) throw new McpError(ErrorCode.InvalidParams, 'Connection not found')
 
@@ -259,13 +310,13 @@ async function listObjects(user: User, args: Record<string, unknown>) {
         nextCursor: hasMore ? page[page.length - 1].name : undefined,
       }
     },
-    user.email
+    principal.auditActor
   )
 }
 
-async function describeTable(user: User, args: Record<string, unknown>) {
+async function describeTable(principal: Principal, args: Record<string, unknown>) {
   const connection = reqStr(args, 'connection')
-  requireAnyPermission(user, connection)
+  requireAny(principal, connection)
   const details = buildConnectionDetails(connection)
   if (!details) throw new McpError(ErrorCode.InvalidParams, 'Connection not found')
 
@@ -354,21 +405,22 @@ async function describeTable(user: User, args: Record<string, unknown>) {
         })),
       }
     },
-    user.email
+    principal.auditActor
   )
 }
 
 // Enforce the per-tool permission rule and execute. `expectedPerm` is the disjoint IAM
 // permission this tool maps to; every statement's primary kind-permission must equal it
 // (rejects smuggling a DROP through `query` and mixed-class batches), and the full required
-// set (including function-derived permissions) must be a subset of the token's grants.
-async function execute(user: User, tool: string, expectedPerm: Permission, args: Record<string, unknown>) {
+// set (including function-derived permissions) must be a subset of the agent's grants.
+async function execute(principal: Principal, tool: string, expectedPerm: Permission, args: Record<string, unknown>) {
   const connection = reqStr(args, 'connection')
   const rawSql = reqStr(args, 'sql')
 
-  // Holding the tool's permission on this specific connection (tools/list filtering is
+  // Re-resolve the agent's permissions on this specific connection (tools/list filtering is
   // per-any-connection, so re-check here).
-  requirePermission(user, connection, expectedPerm, tool)
+  const have = principal.permissions(connection)
+  requireOne(have, expectedPerm, tool)
 
   const details = buildConnectionDetails(connection)
   if (!details) throw new McpError(ErrorCode.InvalidParams, 'Connection not found')
@@ -384,13 +436,13 @@ async function execute(user: User, tool: string, expectedPerm: Permission, args:
       )
     }
   }
-  requirePermissions(user, connection, analysis.permissions, tool)
+  requireAll(have, analysis.permissions, tool)
 
   // Wrap safe multi-statement batches in a transaction so a mid-batch failure rolls back.
   const finalSql =
     analysis.statementCount > 1 && analysis.transactionSafe ? `BEGIN;\n${rawSql}\nCOMMIT;` : rawSql
 
-  const result = await runAndAudit(user.email, tool, connection, details, finalSql, rawSql)
+  const result = await runAndAudit(principal, tool, connection, details, finalSql, rawSql)
   const rowCount = result.count ?? result.rows.length
   if (expectedPerm === 'read') {
     return { rowCount, columns: result.columns, rows: result.rows }
@@ -398,10 +450,11 @@ async function execute(user: User, tool: string, expectedPerm: Permission, args:
   return { rowCount, rows: result.rows.length ? result.rows : undefined }
 }
 
-async function explainQuery(user: User, args: Record<string, unknown>) {
+async function explainQuery(principal: Principal, args: Record<string, unknown>) {
   const connection = reqStr(args, 'connection')
   const innerSql = reqStr(args, 'sql')
-  requirePermission(user, connection, 'explain', 'explain_query')
+  const have = principal.permissions(connection)
+  requireOne(have, 'explain', 'explain_query')
 
   const details = buildConnectionDetails(connection)
   if (!details) throw new McpError(ErrorCode.InvalidParams, 'Connection not found')
@@ -423,7 +476,7 @@ async function explainQuery(user: User, args: Record<string, unknown>) {
   // ANALYZE actually runs the statement, so require everything running it would require
   // (e.g. function-derived permissions). Plain EXPLAIN only plans, needing just 'explain'.
   if (analyze) {
-    requirePermissions(user, connection, analysis.permissions, 'explain_query (ANALYZE)')
+    requireAll(have, analysis.permissions, 'explain_query (ANALYZE)')
   }
 
   const opts: string[] = []
@@ -432,40 +485,43 @@ async function explainQuery(user: User, args: Record<string, unknown>) {
   if (format) opts.push(`FORMAT ${format.toUpperCase()}`)
   const explainSql = `${opts.length ? `EXPLAIN (${opts.join(', ')})` : 'EXPLAIN'} ${innerSql}`
 
-  const result = await runAndAudit(user.email, 'explain_query', connection, details, explainSql, explainSql)
+  const result = await runAndAudit(principal, 'explain_query', connection, details, explainSql, explainSql)
   const planRows = result.rows.map((r) => (r as Record<string, unknown>)['QUERY PLAN'])
   const plan = format === 'json' ? planRows[0] : planRows.join('\n')
   return { plan }
 }
 
-// Execute SQL, timing and auditing it as an MCP query tagged with origin + tool name, and
+// Execute SQL, timing and auditing it as an MCP query tagged with origin, tool, and agent, and
 // rethrow a plain Error on failure. `auditSql` is the text recorded (e.g. the raw statement),
 // which may differ from `execSql` actually run (e.g. the EXPLAIN-wrapped or BEGIN/COMMIT form).
 async function runAndAudit(
-  email: string,
+  principal: Principal,
   tool: string,
   connection: string,
   details: ConnectionDetails,
   execSql: string,
   auditSql: string
 ) {
+  const actor = principal.auditActor
+  const opts = { source: 'mcp' as const, tool, agent: principal.agentId }
   const start = Date.now()
   try {
-    const result = await runStatement(details, execSql, email)
-    auditSQL(email, connection, details.database, auditSql, true, Date.now() - start, result.count ?? result.rows.length, undefined, { source: 'mcp', tool })
+    const result = await runStatement(details, execSql, actor)
+    auditSQL(actor, connection, details.database, auditSql, true, Date.now() - start, result.count ?? result.rows.length, undefined, opts)
     return result
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Query execution failed'
-    auditSQL(email, connection, details.database, auditSql, false, Date.now() - start, undefined, message, { source: 'mcp', tool })
+    auditSQL(actor, connection, details.database, auditSql, false, Date.now() - start, undefined, message, opts)
     throw new Error(message)
   }
 }
 
 // Run one (possibly multi-statement) SQL string and normalize the postgres.js result.
+// `appUser` tags the Postgres application_name for monitoring/correlation.
 async function runStatement(
   details: ConnectionDetails,
   sql: string,
-  email: string
+  appUser: string
 ): Promise<{ count: number | undefined; columns: string[]; rows: Record<string, unknown>[] }> {
   return withConnection(
     details,
@@ -478,40 +534,39 @@ async function runStatement(
       const columns = result.columns?.map((c) => c.name) ?? (rows[0] ? Object.keys(rows[0]) : [])
       return { count: result.count, columns, rows }
     },
-    email
+    appUser
   )
 }
 
 // ---- MCP server wiring ----
 
-function buildServer(email: string): Server {
+function buildServer(principal: Principal): Server {
   const server = new Server(
     { name: 'pgconsole', version: typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '0.0.0' },
     { capabilities: { tools: {} } }
   )
 
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: listToolsFor(email) }))
+  server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: listToolsFor(principal) }))
 
   server.setRequestHandler(CallToolRequestSchema, async (req) => {
-    const user: User = { email }
     const name = req.params.name
     const args = (req.params.arguments ?? {}) as Record<string, unknown>
     try {
       switch (name) {
         case 'list_connections':
-          return textResult(await listConnections(user))
+          return textResult(await listConnections(principal))
         case 'list_objects':
-          return textResult(await listObjects(user, args))
+          return textResult(await listObjects(principal, args))
         case 'describe_table':
-          return textResult(await describeTable(user, args))
+          return textResult(await describeTable(principal, args))
         case 'explain_query':
-          return textResult(await explainQuery(user, args))
+          return textResult(await explainQuery(principal, args))
         case 'query':
-          return textResult(await execute(user, 'query', 'read', args))
+          return textResult(await execute(principal, 'query', 'read', args))
         case 'write_data':
-          return textResult(await execute(user, 'write_data', 'write', args))
+          return textResult(await execute(principal, 'write_data', 'write', args))
         case 'run_ddl':
-          return textResult(await execute(user, 'run_ddl', 'ddl', args))
+          return textResult(await execute(principal, 'run_ddl', 'ddl', args))
         default:
           throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`)
       }
@@ -529,8 +584,8 @@ export const mcpRouter = express.Router()
 mcpRouter.post(MCP_PATH, async (req: Request, res: Response) => {
   const auth = req.headers.authorization
   const token = auth?.startsWith('Bearer ') ? auth.slice(7).trim() : undefined
-  const email = token ? resolveMcpTokenEmail(token) : undefined
-  if (!email) {
+  const agent = token ? getAgentByToken(token) : undefined
+  if (!agent) {
     res.status(401).json({
       jsonrpc: '2.0',
       error: { code: -32001, message: 'Unauthorized: a valid MCP bearer token is required' },
@@ -539,7 +594,7 @@ mcpRouter.post(MCP_PATH, async (req: Request, res: Response) => {
     return
   }
 
-  const server = buildServer(email)
+  const server = buildServer(new Principal(agent))
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true })
   res.on('close', () => {
     transport.close()

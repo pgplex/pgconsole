@@ -97,6 +97,7 @@ All audit events are JSON objects with a common structure:
 | `error` | Error message (if failed) |
 | `source` | `"mcp"` when the query came from the [MCP Server](/features/mcp-server) (omitted otherwise) |
 | `tool` | MCP tool name that ran the query (only when `source` is `"mcp"`) |
+| `agent` | The [agent](/configuration/config#agents) id that ran the query (only when `source` is `"mcp"`). For a delegated agent the `actor` is the user it acts for; for a pure agent the `actor` is `agent:<id>` |
 
 ### data.export
 

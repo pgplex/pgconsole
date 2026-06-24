@@ -25,11 +25,20 @@ Learnings absorbed from the "State of Postgres MCP Servers 2025" survey:
 ### Transport & identity
 - **Streamable HTTP** MCP endpoint mounted on the existing Express server
   (`server/index.ts`), not stdio (pgconsole is a long-running server).
-- **Token → user-email mapping** (PAT / API key in `pgconsole.toml`). Every MCP request
-  resolves to an IAM identity, so `getUserPermissions(email, connectionId)` applies
-  unchanged. This is the one genuinely new piece; everything downstream reuses existing code.
-- **Read-only by default**: a token grants only the IAM permissions explicitly assigned.
-  Write/ddl/admin are opt-in per token.
+- **Token → agent principal** (`[[agents]]` in `pgconsole.toml`). An agent is a non-human
+  principal — not a `[[users]]` entry, so it has no UI login and no license seat. Two kinds
+  (mirroring the "identity for AI agents" delegation model):
+  - **Pure agent** (case 3) — a standalone service account, authorized by IAM rules whose
+    members include `agent:<id>` (`getAgentPermissions`). `*`/`group:`/`user:` rules never
+    apply to agents (no agent silently inherits a broad grant).
+  - **Delegated agent** (case 2, `on_behalf_of` set) — acts for a user, inheriting
+    `getUserPermissions(email, …)` **narrowed** by optional `permissions`/`connections` caps.
+    Can never exceed the user; deprovisions automatically with them ("persona shadowing").
+- **Least privilege**: pure agents are granted only by explicit `agent:` rules; delegated
+  agents are bounded by their user and the caps. Both reuse the existing IAM engine + the
+  per-statement permission enforcement unchanged.
+- **Attribution**: audit records `agent:<id>` (pure) or the delegating user + agent label
+  (delegated), tagged `source=mcp`.
 
 ### Tools-first (baseline), Resources deferred
 Schema discovery and execution are exposed as **tools**, because every mainstream client
@@ -73,23 +82,24 @@ No single-blob `describe_database` tool (it blows up context on large DBs).
 
 ## Steps
 
-1. **Token identity** (`server/lib/config.ts` + auth middleware) → verify: a configured MCP
-   token resolves to a user email; unknown token → 401.
-   - Add MCP tokens to config (token → email); resolve to the same `{ email }` the RPC
-     services already consume.
+1. **Agent identity** (`server/lib/config.ts` + auth middleware) → verify: a configured agent
+   token resolves to its principal; unknown token → 401.
+   - Add `[[agents]]` to config (pure + delegated) and the `agent:` IAM member type; resolve
+     a token to a `Principal` whose `.permissions(conn)` reuses `getUserPermissions` (delegated,
+     ∩ caps) or `getAgentPermissions` (pure).
 2. **MCP endpoint** (`server/index.ts`) → verify: an MCP client completes `initialize` and
    `tools/list` over streamable HTTP.
    - Mount an MCP server (SDK) on a new route behind the token-auth middleware.
-3. **Dynamic tool list** → verify: a read-only token sees only
-   `list_connections`/`list_objects`/`describe_table`/`explain_query`/`query`; a write token
-   additionally sees `write_data`.
-   - Filter advertised tools by `getUserPermissions` for the token's accessible connections.
+3. **Dynamic tool list** → verify: a read-only agent sees only
+   `list_connections`/`list_objects`/`describe_table`/`query`; a write agent additionally
+   sees `write_data`.
+   - Filter advertised tools by the principal's effective permissions across its connections.
 4. **Discovery tools** → verify: `list_objects` paginates and filters on a large schema;
    `describe_table` returns full detail for one table.
 5. **Execution tools** → verify: `query` runs a SELECT; `query` of a DROP is rejected;
    `SELECT pg_terminate_backend()` denied without admin; every call audited.
-6. **Docs** (`docs/configuration/config.mdx` + a feature page) → verify: MCP token config and
-   tool list documented.
+6. **Docs** (`docs/configuration/config.mdx` + a feature page) → verify: agent config (pure +
+   delegated) and tool list documented.
 
 ## Out of scope (add later only if asked)
 - **Resources / resource templates** — enhancement for resource-capable clients (Claude

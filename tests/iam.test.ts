@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { getUserPermissions, hasPermission, getAccessibleConnectionIds } from '../server/lib/iam'
+import { getUserPermissions, hasPermission, getAccessibleConnectionIds, getAgentPermissions } from '../server/lib/iam'
 import * as config from '../server/lib/config'
 import { feature as featureCheck } from '../src/lib/plan'
 
@@ -147,6 +147,45 @@ describe('hasPermission', () => {
     expect(hasPermission('alice', 'prod', 'read')).toBe(true)
     expect(hasPermission('alice', 'prod', 'write')).toBe(true)
     expect(hasPermission('alice', 'prod', 'ddl')).toBe(false)
+  })
+})
+
+describe('getAgentPermissions', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    vi.mocked(featureCheck).mockReturnValue(true)
+    vi.mocked(config.isAuthEnabled).mockReturnValue(true)
+    vi.mocked(config.getGroupsForUser).mockReturnValue([])
+  })
+
+  it('matches agent: members', () => {
+    vi.mocked(config.getIAMRules).mockReturnValue([
+      { connection: 'prod', permissions: ['read', 'ddl'], members: ['agent:migration-bot'] },
+    ])
+    expect(getAgentPermissions('migration-bot', 'prod')).toEqual(new Set(['read', 'ddl']))
+  })
+
+  it('does NOT inherit * or group: or user: rules', () => {
+    vi.mocked(config.getIAMRules).mockReturnValue([
+      { connection: 'prod', permissions: ['admin'], members: ['*'] },
+      { connection: 'prod', permissions: ['write'], members: ['group:dba'] },
+      { connection: 'prod', permissions: ['ddl'], members: ['user:bot'] },
+    ])
+    expect(getAgentPermissions('bot', 'prod')).toEqual(new Set())
+  })
+
+  it('honors wildcard connection rules', () => {
+    vi.mocked(config.getIAMRules).mockReturnValue([
+      { connection: '*', permissions: ['read'], members: ['agent:bot'] },
+    ])
+    expect(getAgentPermissions('bot', 'anything')).toEqual(new Set(['read']))
+  })
+
+  it('returns empty when no agent rule matches', () => {
+    vi.mocked(config.getIAMRules).mockReturnValue([
+      { connection: 'prod', permissions: ['read'], members: ['agent:other'] },
+    ])
+    expect(getAgentPermissions('bot', 'prod')).toEqual(new Set())
   })
 })
 

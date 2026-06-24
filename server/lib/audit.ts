@@ -33,6 +33,8 @@ interface SQLExecuteEvent extends BaseEvent {
   source?: 'mcp'
   /** MCP tool name (only when source is 'mcp') */
   tool?: string
+  /** Agent id that ran the query, when source is 'mcp' (present for both pure and delegated agents) */
+  agent?: string
 }
 
 interface DataExportEvent extends BaseEvent {
@@ -87,8 +89,8 @@ export function auditSQL(
   duration_ms: number,
   row_count?: number,
   error?: string,
-  // Set when the query came from the MCP server, to tag origin and tool name.
-  opts?: { source: 'mcp'; tool: string }
+  // Set when the query came from the MCP server, to tag origin, tool, and agent.
+  opts?: { source: 'mcp'; tool: string; agent: string }
 ): void {
   const event: SQLExecuteEvent = {
     type: 'audit',
@@ -106,6 +108,7 @@ export function auditSQL(
   if (opts) {
     event.source = opts.source
     event.tool = opts.tool
+    event.agent = opts.agent
   }
   emit(event)
 }

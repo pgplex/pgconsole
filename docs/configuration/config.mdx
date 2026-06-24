@@ -130,9 +130,11 @@ vendor = "openai"
 model = "gpt-4o"
 api_key = "sk-..."
 
-[[mcp.tokens]]
+[[agents]]
+id = "alice-claude"
 token = "pgc_mcp_xxxxxxxxxxxxxxxx"
-email = "alice@example.com"
+on_behalf_of = "alice@example.com"
+permissions = ["read"]
 ```
 
 ## General
@@ -406,19 +408,44 @@ api_key = "gsk_..."
 base_url = "https://api.groq.com/openai/v1"
 ```
 
-## MCP Tokens
+## Agents
 
-Bearer tokens that let external AI agents reach the [MCP Server](/features/mcp-server). Each token maps to a user email; every MCP request runs as that user, so the same [Access Control (IAM)](#access-control-iam) permissions apply. Repeat for multiple tokens.
+Non-human principals that authenticate to the [MCP Server](/features/mcp-server) with a bearer token. An agent is **not** a [user](#users) — it can't log into the UI and doesn't count against your license seats. Repeat for multiple agents.
 
 | Field | Description | Required |
 |-------|-------------|----------|
-| `token` | Secret bearer token the agent sends as `Authorization: Bearer <token>` | Yes |
-| `email` | User the token acts as (match a [`[[users]]`](#users) entry so group and IAM rules resolve) | Yes |
+| `id` | Unique identifier, referenced in IAM rules as `agent:<id>` | Yes |
+| `token` | Secret bearer token the agent sends as `Authorization: Bearer <token>` (globally unique) | Yes |
+| `name` | Display name (defaults to `id`) | |
+| `on_behalf_of` | A [`[[users]]`](#users) email. Its presence makes the agent **delegated** — see below | |
+| `permissions` | Cap intersected with the user's grant; delegated agents only | |
+| `connections` | Connection IDs the agent may touch; delegated agents only | |
 
-A token only unlocks the tools whose IAM permission it holds: a `read`-only user sees the discovery and `query` tools, while `write`/`ddl` tools appear only when those permissions are granted. Give each agent its own token with the narrowest IAM rule it needs.
+There are two kinds of agent:
+
+- **Pure agent** (no `on_behalf_of`) — a standalone service account, e.g. a CI bot. Authorize it with normal [IAM rules](#access-control-iam) whose `members` include `agent:<id>`. It is granted *only* what those rules say (`*`/`group:`/`user:` rules never apply to agents).
+- **Delegated agent** (`on_behalf_of` set) — acts on behalf of a user and **inherits that user's permissions**, optionally narrowed by the `permissions`/`connections` caps. It can never exceed the user, and automatically loses access when the user does.
+
+An agent only sees the MCP tools its effective permissions unlock — a `read`-only agent sees the discovery and `query` tools; `write_data`/`run_ddl` appear only with those permissions. Give each agent the narrowest grant it needs.
 
 ```toml pgconsole.toml
-[[mcp.tokens]]
+# Pure agent — granted by an agent: IAM rule
+[[agents]]
+id = "migration-bot"
+name = "Nightly Migration Bot"
 token = "pgc_mcp_xxxxxxxxxxxxxxxx"
-email = "alice@example.com"
+
+[[iam]]
+connection = "staging"
+permissions = ["read", "ddl"]
+members = ["agent:migration-bot"]
+
+# Delegated agent — bounded by alice, capped to read-only on prod
+[[agents]]
+id = "alice-claude"
+name = "Alice's Claude Code"
+token = "pgc_mcp_yyyyyyyyyyyyyyyy"
+on_behalf_of = "alice@example.com"
+permissions = ["read"]
+connections = ["prod"]
 ```

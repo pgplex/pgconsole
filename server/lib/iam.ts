@@ -121,6 +121,36 @@ export function hasPermission(email: string, connectionId: string, permission: P
 }
 
 /**
+ * Get the permissions a (pure) agent has for a connection.
+ * Agents are matched ONLY by explicit `agent:<id>` members — `*` and `group:` rules
+ * do not apply, so no agent silently inherits a broad "everyone" grant.
+ */
+export function getAgentPermissions(agentId: string, connectionId: string): Set<Permission> {
+  if (!isAuthEnabled()) {
+    return new Set(ALL_PERMISSIONS)
+  }
+  if (!feature('IAM', getPlan())) {
+    return new Set(ALL_PERMISSIONS)
+  }
+
+  const member = `agent:${agentId}`
+  const permissions = new Set<Permission>()
+
+  for (const rule of getIAMRules()) {
+    if (rule.connection !== '*' && rule.connection !== connectionId) {
+      continue
+    }
+    if (rule.members.includes(member)) {
+      for (const perm of rule.permissions) {
+        permissions.add(perm)
+      }
+    }
+  }
+
+  return permissions
+}
+
+/**
  * Get all connection IDs that a user has at least one permission for.
  * Used to filter the connection list.
  */
