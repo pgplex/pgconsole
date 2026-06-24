@@ -69,7 +69,7 @@ importers:
         specifier: ^0.0.20
         version: 0.0.20(@electric-sql/pglite@0.3.15)
       '@libpg-query/parser':
-        specifier: ^17.6.9
+        specifier: ~17.7.0
         version: 17.7.0
       '@pierre/diffs':
         specifier: ^1.0.8
