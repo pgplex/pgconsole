@@ -19,7 +19,7 @@ export interface GenerateResult {
 // (Groq, OpenRouter, Ollama, vLLM, LiteLLM, ...) via base_url.
 function buildModel(
   vendor: Vendor,
-  apiKey: string,
+  apiKey: string | undefined,  // optional for keyless openai-compatible providers (Ollama, vLLM)
   model: string,
   baseUrl?: string
 ): LanguageModel {
@@ -34,10 +34,27 @@ function buildModel(
       if (!baseUrl) {
         throw new Error('base_url is required for openai-compatible providers')
       }
-      return createOpenAICompatible({ name: 'openai-compatible', baseURL: baseUrl, apiKey })(model)
+      // Use base_url as the provider name so error messages distinguish providers
+      return createOpenAICompatible({ name: baseUrl, baseURL: baseUrl, apiKey })(model)
     default:
       throw new Error(`Unknown vendor: ${vendor}`)
   }
+}
+
+// Only system/user/assistant string messages are produced here; reject anything else
+// in a decoded session so a malformed or tampered session ID can't poison the prompt.
+function isValidMessage(m: unknown): m is ModelMessage {
+  if (!m || typeof m !== 'object') return false
+  const { role, content } = m as { role?: unknown; content?: unknown }
+  return (role === 'system' || role === 'user' || role === 'assistant') && typeof content === 'string'
+}
+
+// Keep at most one system message and cap the conversation tail, bounding the blob
+// size on both decode (untrusted input) and encode (outgoing).
+function trimHistory(messages: ModelMessage[]): ModelMessage[] {
+  const system = messages.filter((m) => m.role === 'system').slice(0, 1)
+  const rest = messages.filter((m) => m.role !== 'system')
+  return [...system, ...rest.slice(-MAX_HISTORY_MESSAGES)]
 }
 
 // The conversation lives in the session ID as base64-encoded JSON, so the server
@@ -47,7 +64,8 @@ function decodeHistory(sessionId: string, systemPrompt: string | null): ModelMes
     try {
       const decoded = JSON.parse(Buffer.from(sessionId, 'base64').toString('utf-8'))
       if (Array.isArray(decoded?.messages)) {
-        return decoded.messages as ModelMessage[]
+        const valid = decoded.messages.filter(isValidMessage)
+        if (valid.length > 0) return trimHistory(valid)
       }
     } catch {
       // Invalid session ID — silently start fresh
@@ -57,16 +75,12 @@ function decodeHistory(sessionId: string, systemPrompt: string | null): ModelMes
 }
 
 function encodeHistory(messages: ModelMessage[]): string {
-  // Keep the system message; cap the conversation tail
-  const system = messages.filter((m) => m.role === 'system')
-  const rest = messages.filter((m) => m.role !== 'system')
-  const trimmed = [...system, ...rest.slice(-MAX_HISTORY_MESSAGES)]
-  return Buffer.from(JSON.stringify({ messages: trimmed })).toString('base64')
+  return Buffer.from(JSON.stringify({ messages: trimHistory(messages) })).toString('base64')
 }
 
 export async function generateWithVendor(
   vendor: Vendor,
-  apiKey: string,
+  apiKey: string | undefined,
   model: string,
   systemPrompt: string | null,  // null on subsequent messages (system already in history)
   userPrompt: string,

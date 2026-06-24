@@ -54,7 +54,7 @@ export interface AIProviderConfig {
   name?: string
   vendor: Vendor
   model: string
-  api_key: string
+  api_key?: string  // Optional for openai-compatible (keyless local providers); required otherwise
   base_url?: string  // Required for openai-compatible; ignored otherwise
 }
 
@@ -515,7 +515,7 @@ export async function loadConfigFromString(content: string): Promise<void> {
   if (rawAI?.providers && Array.isArray(rawAI.providers)) {
     const providers: AIProviderConfig[] = []
     const seenProviderIds = new Set<string>()
-    const validVendors = ['openai', 'anthropic', 'google', 'openai-compatible']
+    const validVendors: Vendor[] = ['openai', 'anthropic', 'google', 'openai-compatible']
 
     for (const provider of rawAI.providers) {
       const p = provider as Record<string, unknown>
@@ -526,13 +526,18 @@ export async function loadConfigFromString(content: string): Promise<void> {
       if (!p.vendor || typeof p.vendor !== 'string') {
         throw new Error(`AI provider ${p.id} missing required field: vendor`)
       }
-      if (!validVendors.includes(p.vendor)) {
+      if (!validVendors.includes(p.vendor as Vendor)) {
         throw new Error(`AI provider ${p.id} has invalid vendor: ${p.vendor}. Must be one of: ${validVendors.join(', ')}`)
       }
       if (!p.model || typeof p.model !== 'string') {
         throw new Error(`AI provider ${p.id} missing required field: model`)
       }
-      if (!p.api_key || typeof p.api_key !== 'string') {
+      // api_key is required for hosted vendors but optional for openai-compatible, since
+      // local providers (Ollama, vLLM) run without authentication
+      if (p.api_key !== undefined && typeof p.api_key !== 'string') {
+        throw new Error(`AI provider ${p.id} field api_key must be a string`)
+      }
+      if (p.vendor !== 'openai-compatible' && !p.api_key) {
         throw new Error(`AI provider ${p.id} missing required field: api_key`)
       }
 
@@ -557,7 +562,7 @@ export async function loadConfigFromString(content: string): Promise<void> {
         name: typeof p.name === 'string' ? p.name.trim() : providerId,
         vendor: p.vendor as Vendor,
         model: p.model.trim(),
-        api_key: p.api_key,
+        api_key: p.api_key ? p.api_key : undefined,
         base_url: baseUrl,
       })
     }

@@ -45,6 +45,14 @@
 # api_key = "gsk_..."
 # base_url = "https://api.groq.com/openai/v1"
 #
+# # api_key may be omitted for local providers that run without authentication
+# [[ai.providers]]
+# id = "ollama"
+# name = "Ollama (local)"
+# vendor = "openai-compatible"
+# model = "llama3.3"
+# base_url = "http://localhost:11434/v1"
+#
 # [[ai.providers]]
 # id = "claude"
 # name = "Claude Sonnet"
