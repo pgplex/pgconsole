@@ -7,6 +7,7 @@ import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 export type Vendor = 'openai' | 'anthropic' | 'google' | 'openai-compatible'
 
 const MAX_HISTORY_MESSAGES = 10  // Cap conversation tail to bound session blob size
+const MAX_SESSION_ID_BYTES = 256 * 1024  // Reject oversized untrusted session blobs before decoding
 const MAX_OUTPUT_TOKENS = 4096
 
 export interface GenerateResult {
@@ -60,7 +61,7 @@ function trimHistory(messages: ModelMessage[]): ModelMessage[] {
 // The conversation lives in the session ID as base64-encoded JSON, so the server
 // stays stateless and the client round-trips context across turns.
 function decodeHistory(sessionId: string, systemPrompt: string | null): ModelMessage[] {
-  if (sessionId) {
+  if (sessionId && sessionId.length <= MAX_SESSION_ID_BYTES) {
     try {
       const decoded = JSON.parse(Buffer.from(sessionId, 'base64').toString('utf-8'))
       if (Array.isArray(decoded?.messages)) {

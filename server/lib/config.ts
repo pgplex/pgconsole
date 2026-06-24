@@ -537,18 +537,20 @@ export async function loadConfigFromString(content: string): Promise<void> {
       if (p.api_key !== undefined && typeof p.api_key !== 'string') {
         throw new Error(`AI provider ${p.id} field api_key must be a string`)
       }
-      if (p.vendor !== 'openai-compatible' && !p.api_key) {
+      const apiKey = typeof p.api_key === 'string' ? p.api_key.trim() : undefined
+      if (p.vendor !== 'openai-compatible' && !apiKey) {
         throw new Error(`AI provider ${p.id} missing required field: api_key`)
       }
 
       // base_url is required for openai-compatible providers and must be a valid http(s) URL
       let baseUrl: string | undefined = undefined
       if (p.vendor === 'openai-compatible') {
-        if (!p.base_url || typeof p.base_url !== 'string') {
+        const trimmedBaseUrl = typeof p.base_url === 'string' ? p.base_url.trim() : ''
+        if (!trimmedBaseUrl) {
           throw new Error(`AI provider ${p.id} with vendor openai-compatible requires field: base_url`)
         }
-        validateHttpUrl(p.base_url, `AI provider ${p.id} base_url`)
-        baseUrl = p.base_url
+        validateHttpUrl(trimmedBaseUrl, `AI provider ${p.id} base_url`)
+        baseUrl = trimmedBaseUrl
       }
 
       const providerId = p.id.trim()
@@ -562,7 +564,7 @@ export async function loadConfigFromString(content: string): Promise<void> {
         name: typeof p.name === 'string' ? p.name.trim() : providerId,
         vendor: p.vendor as Vendor,
         model: p.model.trim(),
-        api_key: p.api_key ? p.api_key : undefined,
+        api_key: apiKey || undefined,
         base_url: baseUrl,
       })
     }
