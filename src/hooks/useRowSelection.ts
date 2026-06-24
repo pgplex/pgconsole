@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
+import { isEditableElement } from './use-keyboard-shortcuts'
 
 interface UseRowSelectionOptions {
   totalRows: number
@@ -62,6 +63,10 @@ export function useRowSelection({ totalRows, onDelete }: UseRowSelectionOptions)
     }
 
     if ((event.key === 'Delete' || event.key === 'Backspace') && selectedIndices.size > 0) {
+      // Don't delete rows while typing in an editable field (e.g. inline cell editor)
+      if (isEditableElement(event.target)) {
+        return
+      }
       event.preventDefault()
       onDelete?.(Array.from(selectedIndices).sort((a, b) => a - b))
     }
