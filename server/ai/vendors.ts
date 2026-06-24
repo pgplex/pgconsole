@@ -42,8 +42,9 @@ function buildModel(
   }
 }
 
-// Only system/user/assistant string messages are produced here; reject anything else
-// in a decoded session so a malformed or tampered session ID can't poison the prompt.
+// Only system/user/assistant string messages are produced here; drop anything else
+// in a decoded session so a corrupted or stale session ID yields a clean message
+// array rather than malformed input to the SDK.
 function isValidMessage(m: unknown): m is ModelMessage {
   if (!m || typeof m !== 'object') return false
   const { role, content } = m as { role?: unknown; content?: unknown }
@@ -61,7 +62,7 @@ function trimHistory(messages: ModelMessage[]): ModelMessage[] {
 // The conversation lives in the session ID as base64-encoded JSON, so the server
 // stays stateless and the client round-trips context across turns.
 function decodeHistory(sessionId: string, systemPrompt: string | null): ModelMessage[] {
-  if (sessionId && sessionId.length <= MAX_SESSION_ID_BYTES) {
+  if (sessionId && Buffer.byteLength(sessionId, 'utf8') <= MAX_SESSION_ID_BYTES) {
     try {
       const decoded = JSON.parse(Buffer.from(sessionId, 'base64').toString('utf-8'))
       if (Array.isArray(decoded?.messages)) {
