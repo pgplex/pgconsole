@@ -87,12 +87,17 @@ function resolvePermissions(connectionId: string, matches: (rule: IAMRule) => bo
  * Returns a Set of permissions (union of all matching rules).
  */
 export function getUserPermissions(email: string, connectionId: string): Set<Permission> {
-  const groupIds = new Set(getGroupsForUser(email).map(g => g.id))
+  // Resolve the user's groups lazily — skipped entirely when resolvePermissions
+  // short-circuits (auth off / IAM unlicensed) or when no rule has a group: member.
+  let groupIds: Set<string> | undefined
   return resolvePermissions(connectionId, rule =>
     rule.members.some(member => {
       if (member === '*') return true
       if (member.startsWith('user:')) return member.slice(5) === email
-      if (member.startsWith('group:')) return groupIds.has(member.slice(6))
+      if (member.startsWith('group:')) {
+        groupIds ??= new Set(getGroupsForUser(email).map(g => g.id))
+        return groupIds.has(member.slice(6))
+      }
       return false
     })
   )

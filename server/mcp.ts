@@ -571,8 +571,8 @@ function buildServer(principal: Principal): Server {
 export const mcpRouter = express.Router()
 
 mcpRouter.post(MCP_PATH, async (req: Request, res: Response) => {
-  const auth = req.headers.authorization
-  const token = auth?.startsWith('Bearer ') ? auth.slice(7).trim() : undefined
+  // Authorization: Bearer <token> — scheme is case-insensitive per RFC 6750.
+  const token = req.headers.authorization?.match(/^Bearer\s+(.+)$/i)?.[1].trim()
   const agent = token ? getAgentByToken(token) : undefined
   if (!agent) {
     res.status(401).json({
