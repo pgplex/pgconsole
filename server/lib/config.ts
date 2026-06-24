@@ -3,6 +3,7 @@ import { readFileSync } from 'fs'
 import { checkLicense } from './license'
 import { feature } from '../../src/lib/plan'
 import type { PlanTier } from '../../src/lib/plan'
+import type { Vendor } from '../ai/vendors'
 
 export interface LabelConfig {
   id: string
@@ -51,9 +52,10 @@ export interface AuthConfig {
 export interface AIProviderConfig {
   id: string
   name?: string
-  vendor: 'openai' | 'anthropic' | 'google'
+  vendor: Vendor
   model: string
   api_key: string
+  base_url?: string  // Required for openai-compatible; ignored otherwise
 }
 
 export interface AIConfig {
@@ -112,6 +114,19 @@ let demoMode = false
 
 function isValidHexColor(color: string): boolean {
   return /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(color)
+}
+
+// Validate that `value` is a parseable http(s) URL. `field` prefixes the error message.
+function validateHttpUrl(value: string, field: string): void {
+  let parsed: URL
+  try {
+    parsed = new URL(value)
+  } catch {
+    throw new Error(`${field} is not a valid URL: ${value}`)
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error(`${field} must use http or https: ${value}`)
+  }
 }
 
 export async function loadConfig(configPath: string): Promise<void> {
@@ -217,15 +232,7 @@ export async function loadConfigFromString(content: string): Promise<void> {
       if (b.logo_link.startsWith('/')) {
         brandingConfig.logo_link = b.logo_link
       } else {
-        try {
-          const parsed = new URL(b.logo_link)
-          if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-            throw new Error(`branding.logo_link must use http or https: ${b.logo_link}`)
-          }
-        } catch (e) {
-          if (e instanceof Error && e.message.startsWith('branding.')) throw e
-          throw new Error(`branding.logo_link is not a valid URL: ${b.logo_link}`)
-        }
+        validateHttpUrl(b.logo_link, 'branding.logo_link')
         brandingConfig.logo_link = b.logo_link
       }
     }
@@ -508,7 +515,7 @@ export async function loadConfigFromString(content: string): Promise<void> {
   if (rawAI?.providers && Array.isArray(rawAI.providers)) {
     const providers: AIProviderConfig[] = []
     const seenProviderIds = new Set<string>()
-    const validVendors = ['openai', 'anthropic', 'google']
+    const validVendors = ['openai', 'anthropic', 'google', 'openai-compatible']
 
     for (const provider of rawAI.providers) {
       const p = provider as Record<string, unknown>
@@ -529,6 +536,16 @@ export async function loadConfigFromString(content: string): Promise<void> {
         throw new Error(`AI provider ${p.id} missing required field: api_key`)
       }
 
+      // base_url is required for openai-compatible providers and must be a valid http(s) URL
+      let baseUrl: string | undefined = undefined
+      if (p.vendor === 'openai-compatible') {
+        if (!p.base_url || typeof p.base_url !== 'string') {
+          throw new Error(`AI provider ${p.id} with vendor openai-compatible requires field: base_url`)
+        }
+        validateHttpUrl(p.base_url, `AI provider ${p.id} base_url`)
+        baseUrl = p.base_url
+      }
+
       const providerId = p.id.trim()
       if (seenProviderIds.has(providerId)) {
         throw new Error(`Duplicate AI provider ID: ${providerId}`)
@@ -538,9 +555,10 @@ export async function loadConfigFromString(content: string): Promise<void> {
       providers.push({
         id: providerId,
         name: typeof p.name === 'string' ? p.name.trim() : providerId,
-        vendor: p.vendor as 'openai' | 'anthropic' | 'google',
+        vendor: p.vendor as Vendor,
         model: p.model.trim(),
         api_key: p.api_key,
+        base_url: baseUrl,
       })
     }
 

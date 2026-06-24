@@ -26,7 +26,7 @@
 # =============================================================================
 # AI providers for Text-to-SQL (optional)
 # =============================================================================
-# Supported vendors: openai, anthropic, google
+# Supported vendors: openai, anthropic, google, openai-compatible
 #
 # [[ai.providers]]
 # id = "gpt4"
@@ -34,6 +34,16 @@
 # vendor = "openai"
 # model = "gpt-4o"
 # api_key = "sk-..."
+#
+# # openai-compatible: any provider implementing the OpenAI API
+# # (Groq, OpenRouter, Together, Ollama, vLLM, LiteLLM, ...). base_url is required.
+# [[ai.providers]]
+# id = "groq"
+# name = "Llama 3.3 70B"
+# vendor = "openai-compatible"
+# model = "llama-3.3-70b-versatile"
+# api_key = "gsk_..."
+# base_url = "https://api.groq.com/openai/v1"
 #
 # [[ai.providers]]
 # id = "claude"
