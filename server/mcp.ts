@@ -54,10 +54,16 @@ function agentAccess(principal: Principal): { hasAccessible: boolean; union: Set
 
 // ---- Per-connection permission enforcement (mirrors iam.ts requireX, principal-aware) ----
 
-function requireAny(principal: Principal, connectionId: string): void {
-  if (principal.permissions(connectionId).size === 0) {
+// Fail closed when the agent has no permissions on the connection — a single message
+// for "doesn't exist" and "exists but not granted", so existence isn't revealed.
+function requireAccessible(have: Set<Permission>): void {
+  if (have.size === 0) {
     throw new Error('Connection not found or not accessible')
   }
+}
+
+function requireAny(principal: Principal, connectionId: string): void {
+  requireAccessible(principal.permissions(connectionId))
 }
 
 function requireOne(have: Set<Permission>, permission: Permission, action: string): void {
@@ -407,6 +413,7 @@ async function execute(principal: Principal, tool: string, expectedPerm: Permiss
   // Re-resolve the agent's permissions on this specific connection (tools/list filtering is
   // per-any-connection, so re-check here).
   const have = principal.permissions(connection)
+  requireAccessible(have)
   requireOne(have, expectedPerm, tool)
 
   const details = buildConnectionDetails(connection)
@@ -443,6 +450,7 @@ async function explainQuery(principal: Principal, args: Record<string, unknown>)
   const connection = reqStr(args, 'connection')
   const innerSql = reqStr(args, 'sql')
   const have = principal.permissions(connection)
+  requireAccessible(have)
   requireOne(have, 'explain', 'explain_query')
 
   const details = buildConnectionDetails(connection)
@@ -538,27 +546,8 @@ function buildServer(principal: Principal): Server {
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: listToolsFor(principal) }))
 
   server.setRequestHandler(CallToolRequestSchema, async (req) => {
-    const name = req.params.name
-    const args = (req.params.arguments ?? {}) as Record<string, unknown>
     try {
-      switch (name) {
-        case 'list_connections':
-          return textResult(await listConnections(principal))
-        case 'list_objects':
-          return textResult(await listObjects(principal, args))
-        case 'describe_table':
-          return textResult(await describeTable(principal, args))
-        case 'explain_query':
-          return textResult(await explainQuery(principal, args))
-        case 'query':
-          return textResult(await execute(principal, 'query', 'read', args))
-        case 'write_data':
-          return textResult(await execute(principal, 'write_data', 'write', args))
-        case 'run_ddl':
-          return textResult(await execute(principal, 'run_ddl', 'ddl', args))
-        default:
-          throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`)
-      }
+      return await dispatchTool(principal, req.params.name, (req.params.arguments ?? {}) as Record<string, unknown>)
     } catch (err) {
       if (err instanceof McpError) throw err
       return errorResult(err instanceof Error ? err.message : String(err))
@@ -566,6 +555,30 @@ function buildServer(principal: Principal): Server {
   })
 
   return server
+}
+
+// Route a tool call to its implementation. Enforcement (permission gating, per-statement
+// kind checks) runs here and throws before any database I/O; the caller maps thrown errors
+// to MCP error results. Exported so the enforcement paths are unit-testable without a DB.
+export async function dispatchTool(principal: Principal, name: string, args: Record<string, unknown>) {
+  switch (name) {
+    case 'list_connections':
+      return textResult(await listConnections(principal))
+    case 'list_objects':
+      return textResult(await listObjects(principal, args))
+    case 'describe_table':
+      return textResult(await describeTable(principal, args))
+    case 'explain_query':
+      return textResult(await explainQuery(principal, args))
+    case 'query':
+      return textResult(await execute(principal, 'query', 'read', args))
+    case 'write_data':
+      return textResult(await execute(principal, 'write_data', 'write', args))
+    case 'run_ddl':
+      return textResult(await execute(principal, 'run_ddl', 'ddl', args))
+    default:
+      throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`)
+  }
 }
 
 export const mcpRouter = express.Router()

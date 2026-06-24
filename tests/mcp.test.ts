@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { loadConfigFromString, getAgents, getAgentById, getAgentByToken } from '../server/lib/config'
-import { selectToolNames, Principal } from '../server/mcp'
+import { selectToolNames, Principal, dispatchTool } from '../server/mcp'
 import type { Permission } from '../server/lib/config'
 
 const BASE = `
@@ -136,6 +136,74 @@ id = "bot"
 token = "t"
 `)
     expect(new Principal(getAgentByToken('t')!).auditActor).toBe('agent:bot')
+  })
+})
+
+describe('dispatchTool enforcement', () => {
+  // These exercise the permission/per-statement gating, which throws before any DB I/O.
+  // On the FREE plan a pure agent has all permissions, so rejections come purely from the
+  // tool's statement-kind rule; a delegated read-only agent exercises the cap-based denials.
+  const AGENTS = `
+[[agents]]
+id = "pure"
+token = "tok-pure"
+
+[[agents]]
+id = "ro"
+token = "tok-ro"
+on_behalf_of = "alice@example.com"
+permissions = ["read"]
+
+[[agents]]
+id = "ro-prod"
+token = "tok-roprod"
+on_behalf_of = "alice@example.com"
+connections = ["prod"]
+`
+  const principal = async (token: string) => {
+    await loadConfigFromString(`${BASE}\n${AGENTS}`)
+    return new Principal(getAgentByToken(token)!)
+  }
+  const call = (p: Principal, name: string, args: Record<string, unknown>) => dispatchTool(p, name, args)
+
+  it('query rejects a DROP (kind mismatch)', async () => {
+    const p = await principal('tok-pure')
+    await expect(call(p, 'query', { connection: 'prod', sql: 'DROP TABLE x' })).rejects.toThrow(/only accepts statements requiring 'read'/)
+  })
+
+  it('query rejects a mixed-class batch', async () => {
+    const p = await principal('tok-pure')
+    await expect(call(p, 'query', { connection: 'prod', sql: 'SELECT 1; DROP TABLE x' })).rejects.toThrow(/requires 'ddl'/)
+  })
+
+  it('write_data rejects a SELECT', async () => {
+    const p = await principal('tok-pure')
+    await expect(call(p, 'write_data', { connection: 'prod', sql: 'SELECT 1' })).rejects.toThrow(/only accepts statements requiring 'write'/)
+  })
+
+  it('function-derived admin is required (read token denied pg_terminate_backend)', async () => {
+    const p = await principal('tok-ro')
+    await expect(call(p, 'query', { connection: 'prod', sql: 'SELECT pg_terminate_backend(1)' })).rejects.toThrow(/requires 'admin'/)
+  })
+
+  it('explain_query rejects a non-read statement', async () => {
+    const p = await principal('tok-pure')
+    await expect(call(p, 'explain_query', { connection: 'prod', sql: 'UPDATE x SET a = 1' })).rejects.toThrow(/single SELECT or SHOW/)
+  })
+
+  it('explain_query rejects multiple statements', async () => {
+    const p = await principal('tok-pure')
+    await expect(call(p, 'explain_query', { connection: 'prod', sql: 'SELECT 1; SELECT 2' })).rejects.toThrow(/single SELECT or SHOW/)
+  })
+
+  it('fails closed on an inaccessible connection (no existence leak)', async () => {
+    const p = await principal('tok-roprod') // capped to prod
+    await expect(call(p, 'query', { connection: 'staging', sql: 'SELECT 1' })).rejects.toThrow(/not found or not accessible/)
+  })
+
+  it('rejects an unknown tool', async () => {
+    const p = await principal('tok-pure')
+    await expect(call(p, 'frobnicate', {})).rejects.toThrow(/Unknown tool/)
   })
 })
 
