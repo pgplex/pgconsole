@@ -158,11 +158,13 @@ describe('getAgentPermissions', () => {
     vi.mocked(config.getGroupsForUser).mockReturnValue([])
   })
 
+  const pure = (id: string) => ({ id, name: id, token: 't' })
+
   it('matches agent: members', () => {
     vi.mocked(config.getIAMRules).mockReturnValue([
       { connection: 'prod', permissions: ['read', 'ddl'], members: ['agent:migration-bot'] },
     ])
-    expect(getAgentPermissions('migration-bot', 'prod')).toEqual(new Set(['read', 'ddl']))
+    expect(getAgentPermissions(pure('migration-bot'), 'prod')).toEqual(new Set(['read', 'ddl']))
   })
 
   it('does NOT inherit * or group: or user: rules', () => {
@@ -171,21 +173,38 @@ describe('getAgentPermissions', () => {
       { connection: 'prod', permissions: ['write'], members: ['group:dba'] },
       { connection: 'prod', permissions: ['ddl'], members: ['user:bot'] },
     ])
-    expect(getAgentPermissions('bot', 'prod')).toEqual(new Set())
+    expect(getAgentPermissions(pure('bot'), 'prod')).toEqual(new Set())
   })
 
   it('honors wildcard connection rules', () => {
     vi.mocked(config.getIAMRules).mockReturnValue([
       { connection: '*', permissions: ['read'], members: ['agent:bot'] },
     ])
-    expect(getAgentPermissions('bot', 'anything')).toEqual(new Set(['read']))
+    expect(getAgentPermissions(pure('bot'), 'anything')).toEqual(new Set(['read']))
   })
 
   it('returns empty when no agent rule matches', () => {
     vi.mocked(config.getIAMRules).mockReturnValue([
       { connection: 'prod', permissions: ['read'], members: ['agent:other'] },
     ])
-    expect(getAgentPermissions('bot', 'prod')).toEqual(new Set())
+    expect(getAgentPermissions(pure('bot'), 'prod')).toEqual(new Set())
+  })
+
+  it('delegated agent inherits the user grant narrowed by the permission cap', () => {
+    vi.mocked(config.getIAMRules).mockReturnValue([
+      { connection: 'prod', permissions: ['read', 'write', 'ddl'], members: ['user:alice'] },
+    ])
+    const agent = { id: 'alice-bot', name: 'a', token: 't', onBehalfOf: 'alice', permissions: ['read' as const] }
+    expect(getAgentPermissions(agent, 'prod')).toEqual(new Set(['read']))
+  })
+
+  it('delegated connection cap blocks other connections', () => {
+    vi.mocked(config.getIAMRules).mockReturnValue([
+      { connection: '*', permissions: ['read'], members: ['user:alice'] },
+    ])
+    const agent = { id: 'alice-bot', name: 'a', token: 't', onBehalfOf: 'alice', connections: ['prod'] }
+    expect(getAgentPermissions(agent, 'prod')).toEqual(new Set(['read']))
+    expect(getAgentPermissions(agent, 'staging')).toEqual(new Set())
   })
 })
 

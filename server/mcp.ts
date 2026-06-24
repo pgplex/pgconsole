@@ -13,7 +13,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { CallToolRequestSchema, ListToolsRequestSchema, ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js'
 import { getConnections, getAgentByToken, type AgentConfig } from './lib/config'
 import { withConnection, buildConnectionDetails, type ConnectionDetails } from './lib/db'
-import { getUserPermissions, getAgentPermissions, type Permission } from './lib/iam'
+import { getAgentPermissions, type Permission } from './lib/iam'
 import { detectRequiredPermissions } from './lib/sql-permissions'
 import { auditSQL } from './lib/audit'
 
@@ -22,33 +22,19 @@ declare const __APP_VERSION__: string
 const MCP_PATH = '/mcp'
 const PAGE_SIZE = 100
 
-// A resolved MCP caller. Copies only the fields it needs from the AgentConfig so the
-// per-request server closure doesn't retain the whole config.
+// A resolved MCP caller — identity + audit actor for one agent. Permission resolution
+// itself lives in iam.ts (getAgentPermissions), the single home for that decision.
 export class Principal {
   readonly agentId: string
   readonly auditActor: string // human email (delegated) or `agent:<id>` (pure)
-  private readonly onBehalfOf?: string
-  private readonly permCap?: Set<Permission>
-  private readonly connCap?: Set<string>
 
-  constructor(agent: AgentConfig) {
+  constructor(private readonly agent: AgentConfig) {
     this.agentId = agent.id
-    this.onBehalfOf = agent.onBehalfOf
-    this.permCap = agent.permissions ? new Set(agent.permissions) : undefined
-    this.connCap = agent.connections ? new Set(agent.connections) : undefined
     this.auditActor = agent.onBehalfOf ?? `agent:${agent.id}`
   }
 
-  // Effective permissions on a connection. Pure agents resolve via `agent:` IAM rules;
-  // delegated agents inherit the user's grant, narrowed by the connection/permission caps.
   permissions(connectionId: string): Set<Permission> {
-    if (this.onBehalfOf) {
-      if (this.connCap && !this.connCap.has(connectionId)) return new Set()
-      const base = getUserPermissions(this.onBehalfOf, connectionId)
-      if (!this.permCap) return base
-      return new Set([...base].filter((p) => this.permCap!.has(p)))
-    }
-    return getAgentPermissions(this.agentId, connectionId)
+    return getAgentPermissions(this.agent, connectionId)
   }
 }
 

@@ -122,6 +122,25 @@ interface Config {
 
 const validSslModes = ['disable', 'prefer', 'require', 'verify-full']
 const VALID_PERMISSIONS: Permission[] = ['read', 'write', 'ddl', 'admin', 'explain', 'execute', 'export']
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+// Validate an array of permission strings, expanding '*' to the full set. `label` prefixes errors.
+function parsePermissionList(raw: unknown, label: string): Permission[] {
+  if (!Array.isArray(raw) || raw.length === 0) {
+    throw new Error(`${label} must be a non-empty array`)
+  }
+  const permissions: Permission[] = []
+  for (const perm of raw) {
+    if (perm === '*') {
+      permissions.push(...VALID_PERMISSIONS)
+    } else if (typeof perm !== 'string' || !VALID_PERMISSIONS.includes(perm as Permission)) {
+      throw new Error(`${label} has invalid permission: ${perm}. Must be one of: ${VALID_PERMISSIONS.join(', ')}, *`)
+    } else {
+      permissions.push(perm as Permission)
+    }
+  }
+  return permissions
+}
 
 const DEFAULT_CONFIG: Config = { users: [], groups: [], labels: [], connections: [], auth: undefined, ai: undefined, agents: [], banner: undefined, branding: undefined, license: undefined, iam: [], plan: 'FREE', licenseExpiry: undefined, licenseMaxUsers: 1, licenseEmail: undefined }
 
@@ -354,7 +373,7 @@ export async function loadConfigFromString(content: string): Promise<void> {
     }
 
     const email = u.email.trim()
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (!EMAIL_RE.test(email)) {
       throw new Error(`User entry has invalid email: ${email}`)
     }
     if (seenEmails.has(email)) {
@@ -628,7 +647,7 @@ export async function loadConfigFromString(content: string): Promise<void> {
         throw new Error(`Agent ${id} has invalid on_behalf_of: must be a non-empty string`)
       }
       onBehalfOf = a.on_behalf_of.trim()
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(onBehalfOf)) {
+      if (!EMAIL_RE.test(onBehalfOf)) {
         throw new Error(`Agent ${id} on_behalf_of is not a valid email: ${onBehalfOf}`)
       }
       if (!seenEmails.has(onBehalfOf)) {
@@ -642,19 +661,7 @@ export async function loadConfigFromString(content: string): Promise<void> {
       if (!onBehalfOf) {
         throw new Error(`Agent ${id}: 'permissions' cap requires on_behalf_of (pure agents are granted via [[iam]] rules with agent:${id})`)
       }
-      if (!Array.isArray(a.permissions)) {
-        throw new Error(`Agent ${id} permissions must be an array`)
-      }
-      permissions = []
-      for (const perm of a.permissions) {
-        if (perm === '*') {
-          permissions.push(...VALID_PERMISSIONS)
-        } else if (typeof perm !== 'string' || !VALID_PERMISSIONS.includes(perm as Permission)) {
-          throw new Error(`Agent ${id} has invalid permission: ${perm}. Must be one of: ${VALID_PERMISSIONS.join(', ')}, *`)
-        } else {
-          permissions.push(perm as Permission)
-        }
-      }
+      permissions = parsePermissionList(a.permissions, `Agent ${id} permissions`)
     }
 
     let connections: string[] | undefined
@@ -682,7 +689,6 @@ export async function loadConfigFromString(content: string): Promise<void> {
 
   // Parse and validate IAM rules
   const iam: IAMRule[] = []
-  const validPermissions: Permission[] = ['read', 'write', 'ddl', 'admin', 'explain', 'execute', 'export']
   const rawIAM = (parsed as { iam?: unknown[] }).iam || []
 
   for (let i = 0; i < rawIAM.length; i++) {
@@ -699,22 +705,7 @@ export async function loadConfigFromString(content: string): Promise<void> {
     }
 
     // Validate permissions
-    if (!Array.isArray(rule.permissions) || rule.permissions.length === 0) {
-      throw new Error(`IAM rule ${ruleNum} missing required field: permissions (must be non-empty array)`)
-    }
-    const permissions: Permission[] = []
-    for (const perm of rule.permissions) {
-      if (typeof perm !== 'string') {
-        throw new Error(`IAM rule ${ruleNum} has invalid permission: must be string`)
-      }
-      if (perm === '*') {
-        permissions.push(...validPermissions)
-      } else if (!validPermissions.includes(perm as Permission)) {
-        throw new Error(`IAM rule ${ruleNum} has invalid permission: ${perm}. Must be one of: ${validPermissions.join(', ')}, *`)
-      } else {
-        permissions.push(perm as Permission)
-      }
-    }
+    const permissions = parsePermissionList(rule.permissions, `IAM rule ${ruleNum} permissions`)
 
     // Validate members
     if (!Array.isArray(rule.members) || rule.members.length === 0) {

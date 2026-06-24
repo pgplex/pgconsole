@@ -1,7 +1,7 @@
 import { ConnectError, Code } from '@connectrpc/connect'
 import { getIAMRules, getGroupsForUser, isAuthEnabled, getPlan } from './config'
 import { feature } from '../../src/lib/plan'
-import type { Permission } from './config'
+import type { Permission, AgentConfig, IAMRule } from './config'
 
 export type { Permission }
 
@@ -62,55 +62,40 @@ export function requireAnyPermission(
   return perms
 }
 
-/**
- * Get all permissions a user has for a specific connection.
- * Returns a Set of permissions (union of all matching rules).
- */
-export function getUserPermissions(email: string, connectionId: string): Set<Permission> {
-  // If auth is disabled, grant full access
-  if (!isAuthEnabled()) {
+// Union the permissions from every IAM rule that applies to this connection and whose
+// members satisfy `matches`. Auth-disabled / IAM-not-licensed short-circuit to full access.
+function resolvePermissions(connectionId: string, matches: (rule: IAMRule) => boolean): Set<Permission> {
+  if (!isAuthEnabled() || !feature('IAM', getPlan())) {
     return new Set(ALL_PERMISSIONS)
   }
-
-  // If IAM is not enabled by plan, grant full access to authenticated users
-  if (!feature('IAM', getPlan())) {
-    return new Set(ALL_PERMISSIONS)
-  }
-
-  const rules = getIAMRules()
-  const userGroups = getGroupsForUser(email)
-  const groupIds = new Set(userGroups.map(g => g.id))
-
   const permissions = new Set<Permission>()
-
-  for (const rule of rules) {
-    // Check if rule applies to this connection
+  for (const rule of getIAMRules()) {
     if (rule.connection !== '*' && rule.connection !== connectionId) {
       continue
     }
-
-    // Check if user matches any member
-    const matches = rule.members.some(member => {
-      if (member === '*') {
-        return true
-      }
-      if (member.startsWith('user:')) {
-        return member.slice(5) === email
-      }
-      if (member.startsWith('group:')) {
-        return groupIds.has(member.slice(6))
-      }
-      return false
-    })
-
-    if (matches) {
+    if (matches(rule)) {
       for (const perm of rule.permissions) {
         permissions.add(perm)
       }
     }
   }
-
   return permissions
+}
+
+/**
+ * Get all permissions a user has for a specific connection.
+ * Returns a Set of permissions (union of all matching rules).
+ */
+export function getUserPermissions(email: string, connectionId: string): Set<Permission> {
+  const groupIds = new Set(getGroupsForUser(email).map(g => g.id))
+  return resolvePermissions(connectionId, rule =>
+    rule.members.some(member => {
+      if (member === '*') return true
+      if (member.startsWith('user:')) return member.slice(5) === email
+      if (member.startsWith('group:')) return groupIds.has(member.slice(6))
+      return false
+    })
+  )
 }
 
 /**
@@ -121,33 +106,24 @@ export function hasPermission(email: string, connectionId: string, permission: P
 }
 
 /**
- * Get the permissions a (pure) agent has for a connection.
- * Agents are matched ONLY by explicit `agent:<id>` members — `*` and `group:` rules
- * do not apply, so no agent silently inherits a broad "everyone" grant.
+ * Get an agent's effective permissions for a connection.
+ * - Pure agent: matched ONLY by explicit `agent:<id>` rules — `*`/`group:`/`user:` rules
+ *   never apply, so no agent silently inherits a broad "everyone" grant.
+ * - Delegated agent (`onBehalfOf`): the user's grant, narrowed by the connection/permission
+ *   caps; can never exceed the user it acts for.
  */
-export function getAgentPermissions(agentId: string, connectionId: string): Set<Permission> {
-  if (!isAuthEnabled()) {
-    return new Set(ALL_PERMISSIONS)
-  }
-  if (!feature('IAM', getPlan())) {
-    return new Set(ALL_PERMISSIONS)
-  }
-
-  const member = `agent:${agentId}`
-  const permissions = new Set<Permission>()
-
-  for (const rule of getIAMRules()) {
-    if (rule.connection !== '*' && rule.connection !== connectionId) {
-      continue
+export function getAgentPermissions(agent: AgentConfig, connectionId: string): Set<Permission> {
+  if (agent.onBehalfOf) {
+    if (agent.connections && !agent.connections.includes(connectionId)) {
+      return new Set()
     }
-    if (rule.members.includes(member)) {
-      for (const perm of rule.permissions) {
-        permissions.add(perm)
-      }
-    }
+    const base = getUserPermissions(agent.onBehalfOf, connectionId)
+    if (!agent.permissions) return base
+    const cap = new Set(agent.permissions)
+    return new Set([...base].filter(p => cap.has(p)))
   }
-
-  return permissions
+  const member = `agent:${agent.id}`
+  return resolvePermissions(connectionId, rule => rule.members.includes(member))
 }
 
 /**
