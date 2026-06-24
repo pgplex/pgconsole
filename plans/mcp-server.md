@@ -15,8 +15,8 @@ database access.
 Learnings absorbed from the "State of Postgres MCP Servers 2025" survey:
 - The read-only-transaction **semicolon-breakout bypass** (`COMMIT; DROP SCHEMA`) that
   bit Anthropic's reference server does **not** apply here — `detectRequiredPermissions`
-  parses and unions permissions over *every* statement
-  (`server/lib/sql-permissions.ts:216`), so a DROP inside a "read" call still requires `ddl`.
+  (in `server/lib/sql-permissions.ts`) parses and unions permissions over *every* statement,
+  so a DROP inside a "read" call still requires `ddl`.
 - The **lethal trifecta** (private data + untrusted content + exfiltration) is
   unsolvable, only containable → least-privilege identity + audit, read-only by default.
 

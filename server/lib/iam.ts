@@ -106,7 +106,10 @@ export function hasPermission(email: string, connectionId: string, permission: P
 }
 
 /**
- * Get an agent's effective permissions for a connection.
+ * Get an agent's effective permissions for a connection. Like `getUserPermissions`, this
+ * grants full access when auth is disabled or the plan doesn't include IAM (the shared
+ * `resolvePermissions` short-circuit — IAM is a paid feature, applied uniformly to every
+ * principal). When IAM is active:
  * - Pure agent: matched ONLY by explicit `agent:<id>` rules — `*`/`group:`/`user:` rules
  *   never apply, so no agent silently inherits a broad "everyone" grant.
  * - Delegated agent (`onBehalfOf`): the user's grant, narrowed by the connection/permission
