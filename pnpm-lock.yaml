@@ -69,8 +69,8 @@ importers:
         specifier: ^0.0.20
         version: 0.0.20(@electric-sql/pglite@0.3.15)
       '@libpg-query/parser':
-        specifier: ~17.6.10
-        version: 17.6.10
+        specifier: ~17.7.0
+        version: 17.7.0
       '@pierre/diffs':
         specifier: ^1.0.8
         version: 1.0.10(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -792,8 +792,8 @@ packages:
   '@lezer/lr@1.4.8':
     resolution: {integrity: sha512-bPWa0Pgx69ylNlMlPvBPryqeLYQjyJjqPx+Aupm5zydLIF3NE+6MMLT8Yi23Bd9cif9VS00aUebn+6fDIGBcDA==}
 
-  '@libpg-query/parser@17.6.10':
-    resolution: {integrity: sha512-AT/IM9H24/u70HvBhzkYlSBlYQWhJK3Z4CTmTnd3PnMqHU7Ib3o5pk2TEik6IblWsU64D+4GGURn94v2iSRe1A==}
+  '@libpg-query/parser@17.7.0':
+    resolution: {integrity: sha512-G+DA8enxveO3ESbLDhU7sAz02CPI16dKqXxPAvXbssHZnuBsaTpdHjm9CHC14ownvdujJ4CGwbs7kDUi3Lin9Q==}
 
   '@marijn/find-cluster-break@1.0.2':
     resolution: {integrity: sha512-l0h88YhZFyKdXIFNfSWpyjStDjGHwZ/U7iobcK1cQQD8sejsONdQtTVU+1wVN1PBw40PiiHB1vA5S7VTfQiP9g==}
@@ -3414,7 +3414,7 @@ snapshots:
     dependencies:
       '@lezer/common': 1.5.1
 
-  '@libpg-query/parser@17.6.10':
+  '@libpg-query/parser@17.7.0':
     dependencies:
       '@launchql/protobufjs': 7.2.6
       '@pgsql/types': 17.6.2
