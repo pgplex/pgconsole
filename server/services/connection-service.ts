@@ -30,6 +30,7 @@ function toConnectionResponse(conn: ConnectionConfig, userPermissions: Set<Permi
     labels: hydratedLabels,
     version: info.version || '',
     permissions: Array.from(userPermissions),
+    color: conn.color || '',
   }
 }
 

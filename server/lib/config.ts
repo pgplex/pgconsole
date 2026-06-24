@@ -22,6 +22,7 @@ export interface ConnectionConfig {
   ssl_ca?: string
   ssl_cert?: string
   ssl_key?: string
+  color?: string
   labels?: string[]
   lock_timeout?: string
   statement_timeout?: string
@@ -386,6 +387,15 @@ export async function loadConfigFromString(content: string): Promise<void> {
       throw new Error(`Connection ${c.id} has invalid ssl_mode: ${sslMode}`)
     }
 
+    // Validate color if provided
+    let color: string | undefined = undefined
+    if (c.color !== undefined) {
+      if (typeof c.color !== 'string' || !isValidHexColor(c.color.trim())) {
+        throw new Error(`Connection ${c.id} has invalid color: ${c.color} (must be hex format like #fff or #ffffff)`)
+      }
+      color = c.color.trim()
+    }
+
     // Validate labels if provided
     const connectionLabels: string[] = []
     if (c.labels) {
@@ -418,6 +428,7 @@ export async function loadConfigFromString(content: string): Promise<void> {
       ssl_ca: typeof c.ssl_ca === 'string' ? c.ssl_ca : undefined,
       ssl_cert: typeof c.ssl_cert === 'string' ? c.ssl_cert : undefined,
       ssl_key: typeof c.ssl_key === 'string' ? c.ssl_key : undefined,
+      color,
       labels: connectionLabels.length > 0 ? connectionLabels : undefined,
       lock_timeout: typeof c.lock_timeout === 'string' ? c.lock_timeout : undefined,
       statement_timeout: typeof c.statement_timeout === 'string' ? c.statement_timeout : undefined,
