@@ -17,7 +17,7 @@ interface HeaderProps {
 // ~10% opacity (hex alpha) for a subtle tint wash that keeps dark text legible.
 const TINT_ALPHA = '1A';
 
-// Expand #abc to #aabbcc so we can append an alpha suffix.
+// Normalize a hex color to 6 digits without the leading #, so the caller can append an alpha suffix.
 function expandHex(hex: string): string {
   const h = hex.replace('#', '');
   return h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
