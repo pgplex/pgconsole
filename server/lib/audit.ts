@@ -29,6 +29,10 @@ interface SQLExecuteEvent extends BaseEvent {
   duration_ms: number
   row_count?: number
   error?: string
+  /** Set to 'mcp' when the query originated from the MCP server */
+  source?: 'mcp'
+  /** MCP tool name (only when source is 'mcp') */
+  tool?: string
 }
 
 interface DataExportEvent extends BaseEvent {
@@ -82,7 +86,9 @@ export function auditSQL(
   success: boolean,
   duration_ms: number,
   row_count?: number,
-  error?: string
+  error?: string,
+  // Set when the query came from the MCP server, to tag origin and tool name.
+  opts?: { source: 'mcp'; tool: string }
 ): void {
   const event: SQLExecuteEvent = {
     type: 'audit',
@@ -97,6 +103,10 @@ export function auditSQL(
   }
   if (row_count !== undefined) event.row_count = row_count
   if (error) event.error = error
+  if (opts) {
+    event.source = opts.source
+    event.tool = opts.tool
+  }
   emit(event)
 }
 

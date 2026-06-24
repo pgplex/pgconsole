@@ -129,6 +129,10 @@ name = "GPT-4o"
 vendor = "openai"
 model = "gpt-4o"
 api_key = "sk-..."
+
+[[mcp.tokens]]
+token = "pgc_mcp_xxxxxxxxxxxxxxxx"
+email = "alice@example.com"
 ```
 
 ## General
@@ -400,4 +404,21 @@ vendor = "openai-compatible"
 model = "llama-3.3-70b-versatile"
 api_key = "gsk_..."
 base_url = "https://api.groq.com/openai/v1"
+```
+
+## MCP Tokens
+
+Bearer tokens that let external AI agents reach the [MCP Server](/features/mcp-server). Each token maps to a user email; every MCP request runs as that user, so the same [Access Control (IAM)](#access-control-iam) permissions apply. Repeat for multiple tokens.
+
+| Field | Description | Required |
+|-------|-------------|----------|
+| `token` | Secret bearer token the agent sends as `Authorization: Bearer <token>` | Yes |
+| `email` | User the token acts as (match a [`[[users]]`](#users) entry so group and IAM rules resolve) | Yes |
+
+A token only unlocks the tools whose IAM permission it holds: a `read`-only user sees the discovery and `query` tools, while `write`/`ddl` tools appear only when those permissions are granted. Give each agent its own token with the narrowest IAM rule it needs.
+
+```toml pgconsole.toml
+[[mcp.tokens]]
+token = "pgc_mcp_xxxxxxxxxxxxxxxx"
+email = "alice@example.com"
 ```

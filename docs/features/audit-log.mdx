@@ -95,6 +95,8 @@ All audit events are JSON objects with a common structure:
 | `duration_ms` | Execution time in milliseconds |
 | `row_count` | Number of rows returned (optional) |
 | `error` | Error message (if failed) |
+| `source` | `"mcp"` when the query came from the [MCP Server](/features/mcp-server) (omitted otherwise) |
+| `tool` | MCP tool name that ran the query (only when `source` is `"mcp"`) |
 
 ### data.export
 

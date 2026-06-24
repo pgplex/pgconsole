@@ -2,7 +2,7 @@ import { ConnectError, Code } from "@connectrpc/connect";
 import type { ServiceImpl } from "@connectrpc/connect";
 import { QueryService } from "../../src/gen/query_connect";
 import { getConnectionById } from "../lib/config";
-import { createClient, formatAppName, type ConnectionDetails } from "../lib/db";
+import { createClient, formatAppName, buildConnectionDetails, type ConnectionDetails } from "../lib/db";
 import type postgres from "postgres";
 import { getUserFromContext } from "../connect";
 import { hasPermission, requirePermission, requirePermissions, requireAnyPermission } from "../lib/iam";
@@ -13,21 +13,11 @@ import { auditSQL, auditExport } from "../lib/audit";
 const activeQueries = new Map<string, { pid: number; details: ConnectionDetails; email: string }>();
 
 function getConnectionDetails(connectionId: string): ConnectionDetails {
-  const conn = getConnectionById(connectionId);
-  if (!conn) {
+  const details = buildConnectionDetails(connectionId);
+  if (!details) {
     throw new ConnectError("Connection not found", Code.NotFound);
   }
-
-  return {
-    host: conn.host,
-    port: conn.port,
-    database: conn.database,
-    username: conn.username,
-    password: conn.password,
-    sslMode: conn.ssl_mode || "prefer",
-    lockTimeout: conn.lock_timeout,
-    statementTimeout: conn.statement_timeout,
-  };
+  return details;
 }
 
 async function withConnection<T>(

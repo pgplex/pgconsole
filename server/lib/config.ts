@@ -62,6 +62,15 @@ export interface AIConfig {
   providers: AIProviderConfig[]
 }
 
+export interface MCPTokenConfig {
+  token: string
+  email: string
+}
+
+export interface MCPConfig {
+  tokens: MCPTokenConfig[]
+}
+
 export interface BannerConfig {
   text: string
   link?: string
@@ -98,6 +107,7 @@ interface Config {
   connections: ConnectionConfig[]
   auth?: AuthConfig
   ai?: AIConfig
+  mcp?: MCPConfig
   iam: IAMRule[]
   plan: PlanTier
   licenseExpiry?: number
@@ -107,7 +117,7 @@ interface Config {
 
 const validSslModes = ['disable', 'prefer', 'require', 'verify-full']
 
-const DEFAULT_CONFIG: Config = { users: [], groups: [], labels: [], connections: [], auth: undefined, ai: undefined, banner: undefined, branding: undefined, license: undefined, iam: [], plan: 'FREE', licenseExpiry: undefined, licenseMaxUsers: 1, licenseEmail: undefined }
+const DEFAULT_CONFIG: Config = { users: [], groups: [], labels: [], connections: [], auth: undefined, ai: undefined, mcp: undefined, banner: undefined, branding: undefined, license: undefined, iam: [], plan: 'FREE', licenseExpiry: undefined, licenseMaxUsers: 1, licenseEmail: undefined }
 
 let loadedConfig: Config = { ...DEFAULT_CONFIG }
 let demoMode = false
@@ -142,7 +152,7 @@ export async function loadConfig(configPath: string): Promise<void> {
 export async function loadConfigFromString(content: string): Promise<void> {
   demoMode = false
 
-  const parsed = parse(content) as { general?: Record<string, unknown>, branding?: Record<string, unknown>, users?: unknown[], groups?: unknown[], labels?: unknown[], connections?: unknown[], auth?: Record<string, unknown>, ai?: Record<string, unknown> }
+  const parsed = parse(content) as { general?: Record<string, unknown>, branding?: Record<string, unknown>, users?: unknown[], groups?: unknown[], labels?: unknown[], connections?: unknown[], auth?: Record<string, unknown>, ai?: Record<string, unknown>, mcp?: Record<string, unknown> }
 
   // Parse [general] section
   let external_url: string | undefined = undefined
@@ -575,6 +585,42 @@ export async function loadConfigFromString(content: string): Promise<void> {
     }
   }
 
+  // Parse and validate MCP tokens
+  let mcp: MCPConfig | undefined = undefined
+  const rawMCP = parsed.mcp as { tokens?: unknown[] } | undefined
+  if (rawMCP?.tokens && Array.isArray(rawMCP.tokens)) {
+    const tokens: MCPTokenConfig[] = []
+    const seenTokens = new Set<string>()
+
+    for (let i = 0; i < rawMCP.tokens.length; i++) {
+      const t = rawMCP.tokens[i] as Record<string, unknown>
+      const tokenNum = i + 1
+
+      if (!t.token || typeof t.token !== 'string' || !t.token.trim()) {
+        throw new Error(`MCP token ${tokenNum} missing required field: token`)
+      }
+      if (!t.email || typeof t.email !== 'string' || !t.email.trim()) {
+        throw new Error(`MCP token ${tokenNum} missing required field: email`)
+      }
+
+      const token = t.token.trim()
+      const email = t.email.trim()
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        throw new Error(`MCP token ${tokenNum} has invalid email: ${email}`)
+      }
+      if (seenTokens.has(token)) {
+        throw new Error(`Duplicate MCP token (token ${tokenNum})`)
+      }
+      seenTokens.add(token)
+
+      tokens.push({ token, email })
+    }
+
+    if (tokens.length > 0) {
+      mcp = { tokens }
+    }
+  }
+
   // Parse and validate IAM rules
   const iam: IAMRule[] = []
   const validPermissions: Permission[] = ['read', 'write', 'ddl', 'admin', 'explain', 'execute', 'export']
@@ -659,7 +705,7 @@ export async function loadConfigFromString(content: string): Promise<void> {
     licenseEmail = result.email
   }
 
-  loadedConfig = { external_url, license, banner, branding, users, groups, labels, connections, auth, ai, iam, plan, licenseExpiry, licenseMaxUsers, licenseEmail }
+  loadedConfig = { external_url, license, banner, branding, users, groups, labels, connections, auth, ai, mcp, iam, plan, licenseExpiry, licenseMaxUsers, licenseEmail }
 
   // Validate user count against license limit
   if (auth) {
@@ -741,6 +787,15 @@ export function getAIProviders(): AIProviderConfig[] {
 
 export function getAIProviderById(id: string): AIProviderConfig | undefined {
   return loadedConfig.ai?.providers.find((p) => p.id === id)
+}
+
+export function getMcpTokens(): MCPTokenConfig[] {
+  return loadedConfig.mcp?.tokens ?? []
+}
+
+// Resolve an MCP bearer token to the user email it grants. Returns undefined for unknown tokens.
+export function resolveMcpTokenEmail(token: string): string | undefined {
+  return loadedConfig.mcp?.tokens.find((t) => t.token === token)?.email
 }
 
 export function getIAMRules(): IAMRule[] {
