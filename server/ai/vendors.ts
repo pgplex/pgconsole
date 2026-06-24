@@ -7,7 +7,7 @@ import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 export type Vendor = 'openai' | 'anthropic' | 'google' | 'openai-compatible'
 
 const MAX_HISTORY_MESSAGES = 10  // Cap conversation tail to bound session blob size
-const MAX_SESSION_ID_BYTES = 256 * 1024  // Reject oversized untrusted session blobs before decoding
+const MAX_SESSION_ID_BYTES = 256 * 1024  // Skip decoding session blobs larger than this — fall back to a fresh history
 const MAX_OUTPUT_TOKENS = 4096
 
 export interface GenerateResult {

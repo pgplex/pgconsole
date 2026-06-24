@@ -229,11 +229,12 @@ export async function loadConfigFromString(content: string): Promise<void> {
       if (typeof b.logo_link !== 'string') {
         throw new Error('branding.logo_link must be a string')
       }
-      if (b.logo_link.startsWith('/')) {
-        brandingConfig.logo_link = b.logo_link
+      const logoLink = b.logo_link.trim()
+      if (logoLink.startsWith('/')) {
+        brandingConfig.logo_link = logoLink
       } else {
-        validateHttpUrl(b.logo_link, 'branding.logo_link')
-        brandingConfig.logo_link = b.logo_link
+        validateHttpUrl(logoLink, 'branding.logo_link')
+        brandingConfig.logo_link = logoLink
       }
     }
 
