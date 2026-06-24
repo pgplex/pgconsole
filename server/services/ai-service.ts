@@ -163,7 +163,8 @@ export const aiServiceHandlers: ServiceImpl<typeof AIService> = {
         provider.model,
         systemPrompt,
         TEXT_TO_SQL.user({ prompt: req.prompt }),
-        req.sessionId || ''
+        req.sessionId || '',
+        provider.base_url
       )
 
       return { sql: cleanSQLResponse(result.sql), error: '', sessionId: result.sessionId }
@@ -210,7 +211,8 @@ export const aiServiceHandlers: ServiceImpl<typeof AIService> = {
         provider.model,
         systemPrompt,
         userPrompt,
-        req.sessionId || ''
+        req.sessionId || '',
+        provider.base_url
       )
 
       return { explanation: result.sql, error: '', sessionId: result.sessionId }
@@ -252,7 +254,8 @@ export const aiServiceHandlers: ServiceImpl<typeof AIService> = {
         provider.model,
         systemPrompt,
         userPrompt,
-        ''
+        '',
+        provider.base_url
       )
 
       return { sql: cleanSQLResponse(result.sql), error: '' }
@@ -291,7 +294,8 @@ export const aiServiceHandlers: ServiceImpl<typeof AIService> = {
         provider.model,
         systemPrompt,
         userPrompt,
-        ''
+        '',
+        provider.base_url
       )
 
       return { sql: cleanSQLResponse(result.sql), error: '' }
@@ -347,7 +351,8 @@ export const aiServiceHandlers: ServiceImpl<typeof AIService> = {
         provider.model,
         systemPrompt,
         userPrompt,
-        ''
+        '',
+        provider.base_url
       )
 
       // Note: result.sql contains the assessment text, not SQL

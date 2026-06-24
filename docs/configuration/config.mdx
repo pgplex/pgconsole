@@ -378,9 +378,12 @@ Configure providers for the [AI Assistant](/features/ai-assistant). Repeat for m
 |-------|-------------|----------|
 | `id` | Unique identifier | Yes |
 | `name` | Display name (defaults to `id`) | |
-| `vendor` | AI vendor: `openai`, `anthropic`, `google` | Yes |
+| `vendor` | AI vendor: `openai`, `anthropic`, `google`, `openai-compatible` | Yes |
 | `model` | Model identifier | Yes |
-| `api_key` | API key for the vendor | Yes |
+| `api_key` | API key for the vendor | Yes (optional for `openai-compatible`) |
+| `base_url` | Base URL of an OpenAI-compatible API (e.g. `https://api.groq.com/openai/v1`) | Required for `openai-compatible` |
+
+Use `vendor = "openai-compatible"` with `base_url` for any provider that implements the OpenAI API (Groq, OpenRouter, Together, Ollama, vLLM, LiteLLM, and most self-hosted gateways). `api_key` may be omitted for local providers that run without authentication (e.g. Ollama, self-hosted vLLM).
 
 ```toml pgconsole.toml
 [[ai.providers]]
@@ -389,4 +392,12 @@ name = "GPT-4o"
 vendor = "openai"
 model = "gpt-4o"
 api_key = "sk-..."
+
+[[ai.providers]]
+id = "groq"
+name = "Llama 3.3 70B"
+vendor = "openai-compatible"
+model = "llama-3.3-70b-versatile"
+api_key = "gsk_..."
+base_url = "https://api.groq.com/openai/v1"
 ```
