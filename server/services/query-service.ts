@@ -190,8 +190,10 @@ export const queryServiceHandlers: ServiceImpl<typeof QueryService> = {
       // mode, so a failure in statement N leaves 1..N-1 committed.
       // Statements like CREATE DATABASE, VACUUM, CREATE INDEX CONCURRENTLY
       // cannot run inside a transaction and are excluded.
+      // The `\n;\n` terminates the user's last statement even when it lacks a
+      // trailing semicolon or ends in a line comment, so COMMIT isn't merged into it.
       const sql = (analysis.statementCount > 1 && analysis.transactionSafe)
-        ? `BEGIN;\n${req.sql}\nCOMMIT;`
+        ? `BEGIN;\n${req.sql}\n;\nCOMMIT;`
         : req.sql;
       const result = await client.unsafe(sql);
 

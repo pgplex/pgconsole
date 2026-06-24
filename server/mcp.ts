@@ -201,14 +201,15 @@ function reqStr(args: Record<string, unknown>, name: string): string {
   if (typeof v !== 'string' || !v.trim()) {
     throw new Error(`'${name}' is required`)
   }
-  return v
+  return v.trim()
 }
 
 function optStr(args: Record<string, unknown>, name: string): string | undefined {
   const v = args[name]
   if (v === undefined || v === null) return undefined
   if (typeof v !== 'string') throw new Error(`'${name}' must be a string`)
-  return v
+  const trimmed = v.trim()
+  return trimmed === '' ? undefined : trimmed
 }
 
 // ---- Tool implementations ----
@@ -425,8 +426,10 @@ async function execute(principal: Principal, tool: string, expectedPerm: Permiss
   requireAll(have, analysis.permissions, tool)
 
   // Wrap safe multi-statement batches in a transaction so a mid-batch failure rolls back.
+  // The `\n;\n` before COMMIT terminates the user's last statement even when it lacks a
+  // trailing semicolon or ends in a line comment (a bare `;` would be swallowed by the comment).
   const finalSql =
-    analysis.statementCount > 1 && analysis.transactionSafe ? `BEGIN;\n${rawSql}\nCOMMIT;` : rawSql
+    analysis.statementCount > 1 && analysis.transactionSafe ? `BEGIN;\n${rawSql}\n;\nCOMMIT;` : rawSql
 
   const result = await runAndAudit(principal, tool, connection, details, finalSql, rawSql)
   const rowCount = result.count ?? result.rows.length

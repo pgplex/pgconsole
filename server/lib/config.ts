@@ -673,10 +673,11 @@ export async function loadConfigFromString(content: string): Promise<void> {
         throw new Error(`Agent ${id} connections must be an array`)
       }
       connections = []
-      for (const cid of a.connections) {
-        if (typeof cid !== 'string' || !cid.trim()) {
+      for (const rawCid of a.connections) {
+        if (typeof rawCid !== 'string' || !rawCid.trim()) {
           throw new Error(`Agent ${id} has invalid connection id: must be a non-empty string`)
         }
+        const cid = rawCid.trim()
         if (!seenIds.has(cid)) {
           throw new Error(`Agent ${id} references unknown connection: ${cid}`)
         }
