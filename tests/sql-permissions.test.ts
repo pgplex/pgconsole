@@ -216,4 +216,9 @@ describe('detectRequiredPermissions primaryPermissions', () => {
     const { primaryPermissions } = await detectRequiredPermissions('')
     expect(primaryPermissions).toEqual([])
   })
+
+  it('reports the statement kind for each statement', async () => {
+    const { kinds } = await detectRequiredPermissions('SELECT 1; SHOW search_path; DROP TABLE bar')
+    expect(kinds).toEqual(['select', 'show', 'drop'])
+  })
 })

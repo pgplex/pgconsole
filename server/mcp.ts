@@ -123,12 +123,12 @@ const TOOLS = {
   explain_query: {
     name: 'explain_query',
     description:
-      'Return the query plan for a single SELECT/SHOW statement. With `analyze` the statement is actually executed to gather runtime stats (requires the same permissions as running it).',
+      'Return the query plan for a single SELECT statement. With `analyze` the statement is actually executed to gather runtime stats (requires the same permissions as running it).',
     inputSchema: {
       type: 'object',
       properties: {
         ...connectionProp,
-        sql: { type: 'string', description: 'A single SELECT or SHOW statement (without the EXPLAIN prefix).' },
+        sql: { type: 'string', description: 'A single SELECT statement (without the EXPLAIN prefix).' },
         analyze: { type: 'boolean', description: 'Run the statement and report actual timing (EXPLAIN ANALYZE).' },
         buffers: { type: 'boolean', description: 'Include buffer usage (requires analyze on most servers).' },
         format: { type: 'string', enum: ['text', 'json'], description: 'Output format (default text).' },
@@ -139,10 +139,10 @@ const TOOLS = {
   },
   query: {
     name: 'query',
-    description: 'Run a read-only query (SELECT / SHOW) and return the rows.',
+    description: 'Run a read-only statement (SELECT, SHOW, …) and return the rows.',
     inputSchema: {
       type: 'object',
-      properties: { ...connectionProp, sql: { type: 'string', description: 'A SELECT or SHOW statement.' } },
+      properties: { ...connectionProp, sql: { type: 'string', description: 'A read-only statement, e.g. SELECT or SHOW.' } },
       required: ['connection', 'sql'],
       additionalProperties: false,
     },
@@ -457,10 +457,10 @@ async function explainQuery(principal: Principal, args: Record<string, unknown>)
   if (!details) throw new McpError(ErrorCode.InvalidParams, 'Connection not found')
 
   const analysis = await detectRequiredPermissions(innerSql)
-  // EXPLAIN is for understanding read queries; restrict to a single read statement so that
-  // EXPLAIN ANALYZE cannot execute writes/DDL or trigger side effects via an unexpected kind.
-  if (analysis.statementCount !== 1 || analysis.primaryPermissions[0] !== 'read') {
-    throw new Error('explain_query only supports a single SELECT or SHOW statement')
+  // Postgres EXPLAIN only accepts SELECT among read statements (SHOW/SET/VACUUM/BEGIN are
+  // syntax errors), and ANALYZE would execute anything else — so restrict to a single SELECT.
+  if (analysis.statementCount !== 1 || analysis.kinds[0] !== 'select') {
+    throw new Error('explain_query only supports a single SELECT statement')
   }
 
   const analyze = args.analyze === true

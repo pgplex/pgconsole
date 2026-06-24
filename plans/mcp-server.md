@@ -63,7 +63,7 @@ set — clean IAM mapping and token-efficient by construction.
 | Tool | IAM perm | Accepts |
 |------|----------|---------|
 | `explain_query` | `explain` | `EXPLAIN [ANALYZE]` — exposes Postgres options: `analyze`, `buffers`, `format=json` |
-| `query` | `read` | SELECT / SHOW |
+| `query` | `read` | read-only statements (SELECT / SHOW / …) |
 | `write_data` | `write` | INSERT / UPDATE / DELETE / COPY |
 | `run_ddl` | `ddl` | CREATE / ALTER / DROP / GRANT / … |
 

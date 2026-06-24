@@ -188,12 +188,17 @@ connections = ["prod"]
 
   it('explain_query rejects a non-read statement', async () => {
     const p = await principal('tok-pure')
-    await expect(call(p, 'explain_query', { connection: 'prod', sql: 'UPDATE x SET a = 1' })).rejects.toThrow(/single SELECT or SHOW/)
+    await expect(call(p, 'explain_query', { connection: 'prod', sql: 'UPDATE x SET a = 1' })).rejects.toThrow(/single SELECT statement/)
+  })
+
+  it('explain_query rejects a read statement that EXPLAIN cannot plan (SHOW)', async () => {
+    const p = await principal('tok-pure')
+    await expect(call(p, 'explain_query', { connection: 'prod', sql: 'SHOW search_path' })).rejects.toThrow(/single SELECT statement/)
   })
 
   it('explain_query rejects multiple statements', async () => {
     const p = await principal('tok-pure')
-    await expect(call(p, 'explain_query', { connection: 'prod', sql: 'SELECT 1; SELECT 2' })).rejects.toThrow(/single SELECT or SHOW/)
+    await expect(call(p, 'explain_query', { connection: 'prod', sql: 'SELECT 1; SELECT 2' })).rejects.toThrow(/single SELECT statement/)
   })
 
   it('fails closed on an inaccessible connection (no existence leak)', async () => {
