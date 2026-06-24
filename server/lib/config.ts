@@ -62,6 +62,20 @@ export interface AIConfig {
   providers: AIProviderConfig[]
 }
 
+// A non-human principal that authenticates to the MCP server with a bearer token.
+// - Pure agent (no on_behalf_of): a standalone service account; authorized by
+//   [[iam]] rules whose members include `agent:<id>`.
+// - Delegated agent (on_behalf_of set): acts for a user, inheriting that user's
+//   permissions narrowed by the optional `permissions`/`connections` caps.
+export interface AgentConfig {
+  id: string
+  name: string
+  token: string
+  onBehalfOf?: string        // user email; presence makes the agent delegated
+  permissions?: Permission[] // cap, intersected with the user's grant (delegated only)
+  connections?: string[]     // cap, connection IDs the agent may touch (delegated only)
+}
+
 export interface BannerConfig {
   text: string
   link?: string
@@ -98,6 +112,7 @@ interface Config {
   connections: ConnectionConfig[]
   auth?: AuthConfig
   ai?: AIConfig
+  agents: AgentConfig[]
   iam: IAMRule[]
   plan: PlanTier
   licenseExpiry?: number
@@ -106,8 +121,28 @@ interface Config {
 }
 
 const validSslModes = ['disable', 'prefer', 'require', 'verify-full']
+const VALID_PERMISSIONS: Permission[] = ['read', 'write', 'ddl', 'admin', 'explain', 'execute', 'export']
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-const DEFAULT_CONFIG: Config = { users: [], groups: [], labels: [], connections: [], auth: undefined, ai: undefined, banner: undefined, branding: undefined, license: undefined, iam: [], plan: 'FREE', licenseExpiry: undefined, licenseMaxUsers: 1, licenseEmail: undefined }
+// Validate an array of permission strings, expanding '*' to the full set. `label` prefixes errors.
+function parsePermissionList(raw: unknown, label: string): Permission[] {
+  if (!Array.isArray(raw) || raw.length === 0) {
+    throw new Error(`${label} must be a non-empty array`)
+  }
+  const permissions: Permission[] = []
+  for (const perm of raw) {
+    if (perm === '*') {
+      permissions.push(...VALID_PERMISSIONS)
+    } else if (typeof perm !== 'string' || !VALID_PERMISSIONS.includes(perm as Permission)) {
+      throw new Error(`${label} has invalid permission: ${perm}. Must be one of: ${VALID_PERMISSIONS.join(', ')}, *`)
+    } else {
+      permissions.push(perm as Permission)
+    }
+  }
+  return permissions
+}
+
+const DEFAULT_CONFIG: Config = { users: [], groups: [], labels: [], connections: [], auth: undefined, ai: undefined, agents: [], banner: undefined, branding: undefined, license: undefined, iam: [], plan: 'FREE', licenseExpiry: undefined, licenseMaxUsers: 1, licenseEmail: undefined }
 
 let loadedConfig: Config = { ...DEFAULT_CONFIG }
 let demoMode = false
@@ -142,7 +177,7 @@ export async function loadConfig(configPath: string): Promise<void> {
 export async function loadConfigFromString(content: string): Promise<void> {
   demoMode = false
 
-  const parsed = parse(content) as { general?: Record<string, unknown>, branding?: Record<string, unknown>, users?: unknown[], groups?: unknown[], labels?: unknown[], connections?: unknown[], auth?: Record<string, unknown>, ai?: Record<string, unknown> }
+  const parsed = parse(content) as { general?: Record<string, unknown>, branding?: Record<string, unknown>, users?: unknown[], groups?: unknown[], labels?: unknown[], connections?: unknown[], auth?: Record<string, unknown>, ai?: Record<string, unknown>, agents?: unknown[] }
 
   // Parse [general] section
   let external_url: string | undefined = undefined
@@ -338,7 +373,7 @@ export async function loadConfigFromString(content: string): Promise<void> {
     }
 
     const email = u.email.trim()
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (!EMAIL_RE.test(email)) {
       throw new Error(`User entry has invalid email: ${email}`)
     }
     if (seenEmails.has(email)) {
@@ -575,9 +610,86 @@ export async function loadConfigFromString(content: string): Promise<void> {
     }
   }
 
+  // Parse and validate agents (non-human MCP principals)
+  const agents: AgentConfig[] = []
+  const seenAgentIds = new Set<string>()
+  const seenAgentTokens = new Set<string>()
+  const rawAgents = (parsed as { agents?: unknown[] }).agents || []
+
+  for (let i = 0; i < rawAgents.length; i++) {
+    const a = rawAgents[i] as Record<string, unknown>
+    const label = (typeof a.id === 'string' && a.id.trim()) || `#${i + 1}`
+
+    if (!a.id || typeof a.id !== 'string' || !a.id.trim()) {
+      throw new Error(`Agent ${label} missing required field: id`)
+    }
+    const id = a.id.trim()
+    if (seenAgentIds.has(id)) {
+      throw new Error(`Duplicate agent id: ${id}`)
+    }
+    seenAgentIds.add(id)
+
+    if (!a.token || typeof a.token !== 'string' || !a.token.trim()) {
+      throw new Error(`Agent ${id} missing required field: token`)
+    }
+    const token = a.token.trim()
+    if (seenAgentTokens.has(token)) {
+      throw new Error(`Duplicate agent token (agent ${id})`)
+    }
+    seenAgentTokens.add(token)
+
+    const name = typeof a.name === 'string' && a.name.trim() ? a.name.trim() : id
+
+    // on_behalf_of turns the agent into a delegated principal bounded by that user.
+    let onBehalfOf: string | undefined
+    if (a.on_behalf_of !== undefined) {
+      if (typeof a.on_behalf_of !== 'string' || !a.on_behalf_of.trim()) {
+        throw new Error(`Agent ${id} has invalid on_behalf_of: must be a non-empty string`)
+      }
+      onBehalfOf = a.on_behalf_of.trim()
+      if (!EMAIL_RE.test(onBehalfOf)) {
+        throw new Error(`Agent ${id} on_behalf_of is not a valid email: ${onBehalfOf}`)
+      }
+      if (!seenEmails.has(onBehalfOf)) {
+        throw new Error(`Agent ${id} on_behalf_of references unknown user: ${onBehalfOf}`)
+      }
+    }
+
+    // Caps only narrow a delegated agent; pure agents are granted via [[iam]] agent: rules.
+    let permissions: Permission[] | undefined
+    if (a.permissions !== undefined) {
+      if (!onBehalfOf) {
+        throw new Error(`Agent ${id}: 'permissions' cap requires on_behalf_of (pure agents are granted via [[iam]] rules with agent:${id})`)
+      }
+      permissions = parsePermissionList(a.permissions, `Agent ${id} permissions`)
+    }
+
+    let connections: string[] | undefined
+    if (a.connections !== undefined) {
+      if (!onBehalfOf) {
+        throw new Error(`Agent ${id}: 'connections' cap requires on_behalf_of`)
+      }
+      if (!Array.isArray(a.connections)) {
+        throw new Error(`Agent ${id} connections must be an array`)
+      }
+      connections = []
+      for (const rawCid of a.connections) {
+        if (typeof rawCid !== 'string' || !rawCid.trim()) {
+          throw new Error(`Agent ${id} has invalid connection id: must be a non-empty string`)
+        }
+        const cid = rawCid.trim()
+        if (!seenIds.has(cid)) {
+          throw new Error(`Agent ${id} references unknown connection: ${cid}`)
+        }
+        connections.push(cid)
+      }
+    }
+
+    agents.push({ id, name, token, onBehalfOf, permissions, connections })
+  }
+
   // Parse and validate IAM rules
   const iam: IAMRule[] = []
-  const validPermissions: Permission[] = ['read', 'write', 'ddl', 'admin', 'explain', 'execute', 'export']
   const rawIAM = (parsed as { iam?: unknown[] }).iam || []
 
   for (let i = 0; i < rawIAM.length; i++) {
@@ -594,22 +706,7 @@ export async function loadConfigFromString(content: string): Promise<void> {
     }
 
     // Validate permissions
-    if (!Array.isArray(rule.permissions) || rule.permissions.length === 0) {
-      throw new Error(`IAM rule ${ruleNum} missing required field: permissions (must be non-empty array)`)
-    }
-    const permissions: Permission[] = []
-    for (const perm of rule.permissions) {
-      if (typeof perm !== 'string') {
-        throw new Error(`IAM rule ${ruleNum} has invalid permission: must be string`)
-      }
-      if (perm === '*') {
-        permissions.push(...validPermissions)
-      } else if (!validPermissions.includes(perm as Permission)) {
-        throw new Error(`IAM rule ${ruleNum} has invalid permission: ${perm}. Must be one of: ${validPermissions.join(', ')}, *`)
-      } else {
-        permissions.push(perm as Permission)
-      }
-    }
+    const permissions = parsePermissionList(rule.permissions, `IAM rule ${ruleNum} permissions`)
 
     // Validate members
     if (!Array.isArray(rule.members) || rule.members.length === 0) {
@@ -638,8 +735,17 @@ export async function loadConfigFromString(content: string): Promise<void> {
           throw new Error(`IAM rule ${ruleNum} references unknown group: ${groupId}`)
         }
         members.push(m)
+      } else if (m.startsWith('agent:')) {
+        const agentId = m.slice(6)
+        if (!agentId) {
+          throw new Error(`IAM rule ${ruleNum} has invalid member: agent: prefix requires an agent ID`)
+        }
+        if (!seenAgentIds.has(agentId)) {
+          throw new Error(`IAM rule ${ruleNum} references unknown agent: ${agentId}`)
+        }
+        members.push(m)
       } else {
-        throw new Error(`IAM rule ${ruleNum} has invalid member format: ${m}. Must be "*", "user:xxx", or "group:xxx"`)
+        throw new Error(`IAM rule ${ruleNum} has invalid member format: ${m}. Must be "*", "user:xxx", "group:xxx", or "agent:xxx"`)
       }
     }
 
@@ -659,7 +765,7 @@ export async function loadConfigFromString(content: string): Promise<void> {
     licenseEmail = result.email
   }
 
-  loadedConfig = { external_url, license, banner, branding, users, groups, labels, connections, auth, ai, iam, plan, licenseExpiry, licenseMaxUsers, licenseEmail }
+  loadedConfig = { external_url, license, banner, branding, users, groups, labels, connections, auth, ai, agents, iam, plan, licenseExpiry, licenseMaxUsers, licenseEmail }
 
   // Validate user count against license limit
   if (auth) {
@@ -741,6 +847,19 @@ export function getAIProviders(): AIProviderConfig[] {
 
 export function getAIProviderById(id: string): AIProviderConfig | undefined {
   return loadedConfig.ai?.providers.find((p) => p.id === id)
+}
+
+export function getAgents(): AgentConfig[] {
+  return loadedConfig.agents
+}
+
+export function getAgentById(id: string): AgentConfig | undefined {
+  return loadedConfig.agents.find((a) => a.id === id)
+}
+
+// Resolve an MCP bearer token to the agent it authenticates. Returns undefined for unknown tokens.
+export function getAgentByToken(token: string): AgentConfig | undefined {
+  return loadedConfig.agents.find((a) => a.token === token)
 }
 
 export function getIAMRules(): IAMRule[] {

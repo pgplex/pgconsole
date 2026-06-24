@@ -196,6 +196,10 @@ const TRANSACTION_UNSAFE_KINDS = new Set([
 
 export interface SqlAnalysis {
   permissions: Set<Permission>
+  /** Statement kind for each statement, in order */
+  kinds: Statement['kind'][]
+  /** Primary kind-permission for each statement, in order (excludes function-derived permissions) */
+  primaryPermissions: Permission[]
   statementCount: number
   /** True when all statements can safely run inside a transaction block */
   transactionSafe: boolean
@@ -206,15 +210,20 @@ export async function detectRequiredPermissions(sql: string): Promise<SqlAnalysi
   try {
     const parsed = await parseSql(sql)
     if (parsed.statements.length === 0) {
-      return { permissions: new Set(['read']), statementCount: 0, transactionSafe: true }
+      return { permissions: new Set(['read']), kinds: [], primaryPermissions: [], statementCount: 0, transactionSafe: true }
     }
 
     const permissions = new Set<Permission>()
+    const kinds: Statement['kind'][] = []
+    const primaryPermissions: Permission[] = []
     let transactionSafe = true
 
     // Check all statements in multi-statement SQL
     for (const stmt of parsed.statements) {
-      permissions.add(getRequiredPermission(stmt.kind))
+      kinds.push(stmt.kind)
+      const primary = getRequiredPermission(stmt.kind)
+      primaryPermissions.push(primary)
+      permissions.add(primary)
 
       if (TRANSACTION_UNSAFE_KINDS.has(stmt.kind) || stmt.kind === 'transaction') {
         transactionSafe = false
@@ -233,7 +242,7 @@ export async function detectRequiredPermissions(sql: string): Promise<SqlAnalysi
       }
     }
 
-    return { permissions, statementCount: parsed.statements.length, transactionSafe }
+    return { permissions, kinds, primaryPermissions, statementCount: parsed.statements.length, transactionSafe }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     throw new Error(`SQL syntax error: ${message}`)

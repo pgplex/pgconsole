@@ -27,6 +27,7 @@
           "features/sql-editor",
           "features/database-access-control",
           "features/ai-assistant",
+          "features/mcp-server",
           "features/audit-log",
           "features/white-labeling"
         ]

@@ -1,4 +1,5 @@
 import postgres from "postgres";
+import { getConnectionById } from "./config";
 
 export interface ConnectionDetails {
   host: string;
@@ -9,6 +10,23 @@ export interface ConnectionDetails {
   sslMode: string;
   lockTimeout?: string;
   statementTimeout?: string;
+}
+
+// Map a configured connection to the details needed to open a client.
+// Returns null when the connection ID is unknown; callers raise their own error.
+export function buildConnectionDetails(connectionId: string): ConnectionDetails | null {
+  const conn = getConnectionById(connectionId);
+  if (!conn) return null;
+  return {
+    host: conn.host,
+    port: conn.port,
+    database: conn.database,
+    username: conn.username,
+    password: conn.password,
+    sslMode: conn.ssl_mode || "prefer",
+    lockTimeout: conn.lock_timeout,
+    statementTimeout: conn.statement_timeout,
+  };
 }
 
 export function formatAppName(appUser?: string): string {

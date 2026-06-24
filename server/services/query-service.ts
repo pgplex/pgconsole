@@ -2,7 +2,7 @@ import { ConnectError, Code } from "@connectrpc/connect";
 import type { ServiceImpl } from "@connectrpc/connect";
 import { QueryService } from "../../src/gen/query_connect";
 import { getConnectionById } from "../lib/config";
-import { createClient, formatAppName, type ConnectionDetails } from "../lib/db";
+import { createClient, formatAppName, buildConnectionDetails, type ConnectionDetails } from "../lib/db";
 import type postgres from "postgres";
 import { getUserFromContext } from "../connect";
 import { hasPermission, requirePermission, requirePermissions, requireAnyPermission } from "../lib/iam";
@@ -13,21 +13,11 @@ import { auditSQL, auditExport } from "../lib/audit";
 const activeQueries = new Map<string, { pid: number; details: ConnectionDetails; email: string }>();
 
 function getConnectionDetails(connectionId: string): ConnectionDetails {
-  const conn = getConnectionById(connectionId);
-  if (!conn) {
+  const details = buildConnectionDetails(connectionId);
+  if (!details) {
     throw new ConnectError("Connection not found", Code.NotFound);
   }
-
-  return {
-    host: conn.host,
-    port: conn.port,
-    database: conn.database,
-    username: conn.username,
-    password: conn.password,
-    sslMode: conn.ssl_mode || "prefer",
-    lockTimeout: conn.lock_timeout,
-    statementTimeout: conn.statement_timeout,
-  };
+  return details;
 }
 
 async function withConnection<T>(
@@ -200,8 +190,10 @@ export const queryServiceHandlers: ServiceImpl<typeof QueryService> = {
       // mode, so a failure in statement N leaves 1..N-1 committed.
       // Statements like CREATE DATABASE, VACUUM, CREATE INDEX CONCURRENTLY
       // cannot run inside a transaction and are excluded.
+      // The `\n;\n` terminates the user's last statement even when it lacks a
+      // trailing semicolon or ends in a line comment, so COMMIT isn't merged into it.
       const sql = (analysis.statementCount > 1 && analysis.transactionSafe)
-        ? `BEGIN;\n${req.sql}\nCOMMIT;`
+        ? `BEGIN;\n${req.sql}\n;\nCOMMIT;`
         : req.sql;
       const result = await client.unsafe(sql);
 

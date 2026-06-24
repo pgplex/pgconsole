@@ -3,6 +3,7 @@ import express from 'express'
 import cookieParser from 'cookie-parser'
 import { authRouter } from './auth-routes'
 import { connectRouter } from './connect'
+import { mcpRouter } from './mcp'
 import { loadConfig, loadConfigFromString, loadDemoConfig, isDemoMode, getBanner, getBranding, getExternalUrl, getPlan, getLicenseExpiry, getUsers, getLicenseMaxUsers, getLicenseEmail } from './lib/config'
 import { startDemoDatabase, stopDemoDatabase } from './lib/demo'
 import { testAllConnections } from './lib/test-connections'
@@ -34,6 +35,7 @@ app.use(express.json())
 app.use(cookieParser())
 
 app.use('/api/auth', authRouter)
+app.use(mcpRouter)
 app.use(connectRouter)
 
 // Public settings endpoint (no auth required)

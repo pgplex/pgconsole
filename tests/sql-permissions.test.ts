@@ -198,3 +198,27 @@ describe('detectRequiredPermissions', () => {
   })
 
 })
+
+describe('detectRequiredPermissions primaryPermissions', () => {
+  it('reports one primary permission per statement, in order', async () => {
+    const { primaryPermissions } = await detectRequiredPermissions('SELECT 1; INSERT INTO foo VALUES (1); DROP TABLE bar')
+    expect(primaryPermissions).toEqual(['read', 'write', 'ddl'])
+  })
+
+  it('excludes function-derived permissions from the primary list', async () => {
+    // SELECT pg_terminate_backend → union includes admin, but the statement's primary kind is read
+    const { primaryPermissions, permissions } = await detectRequiredPermissions('SELECT pg_terminate_backend(123)')
+    expect(primaryPermissions).toEqual(['read'])
+    expect(permissions).toEqual(new Set(['read', 'admin']))
+  })
+
+  it('returns empty primary list for empty SQL', async () => {
+    const { primaryPermissions } = await detectRequiredPermissions('')
+    expect(primaryPermissions).toEqual([])
+  })
+
+  it('reports the statement kind for each statement', async () => {
+    const { kinds } = await detectRequiredPermissions('SELECT 1; SHOW search_path; DROP TABLE bar')
+    expect(kinds).toEqual(['select', 'show', 'drop'])
+  })
+})

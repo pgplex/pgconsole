@@ -1,0 +1,102 @@
+---
+title: MCP Server
+---
+
+pgconsole exposes a remote [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server so external AI agents — Claude Code, Cursor, VS Code Copilot, Windsurf, and others — can work with the Postgres connections pgconsole manages.
+
+Unlike handing an agent a raw connection string, every MCP request is **governed**: it runs as a defined [agent](/configuration/config#agents) principal, is gated by [Access Control (IAM)](/features/database-access-control), is checked per statement, and is recorded in the [Audit Log](/features/audit-log).
+
+## Endpoint
+
+The server is mounted on the running pgconsole instance over Streamable HTTP:
+
+```
+POST <external_url>/mcp
+```
+
+Authenticate with an [agent](/configuration/config#agents) token:
+
+```
+Authorization: Bearer <token>
+```
+
+Requests without a valid token are rejected with `401`.
+
+## Identity
+
+Each token belongs to an `[[agents]]` entry — a non-human principal that is **not** a user (no UI login, no license seat). There are two kinds:
+
+- **Pure agent** — a standalone service account (e.g. a CI bot). Authorized by IAM rules whose `members` include `agent:<id>`. Audited as `agent:<id>`.
+- **Delegated agent** — acts `on_behalf_of` a user, **inheriting that user's permissions** narrowed by optional `permissions`/`connections` caps. It can never exceed the user and loses access automatically when the user does. Audited as the user, tagged with the agent.
+
+```toml pgconsole.toml
+# Pure agent
+[[agents]]
+id = "migration-bot"
+token = "pgc_mcp_xxxxxxxxxxxxxxxx"
+
+[[iam]]
+connection = "staging"
+permissions = ["read", "ddl"]
+members = ["agent:migration-bot"]
+
+# Delegated agent — bounded by alice, read-only on prod
+[[agents]]
+id = "alice-claude"
+token = "pgc_mcp_yyyyyyyyyyyyyyyy"
+on_behalf_of = "alice@example.com"
+permissions = ["read"]
+connections = ["prod"]
+```
+
+See [Agents](/configuration/config#agents) for the full field reference.
+
+## Connecting a client
+
+Point any MCP client that supports remote (Streamable HTTP) servers at the endpoint. For example, with Claude Code:
+
+```bash
+claude mcp add --transport http pgconsole https://pgconsole.example.com/mcp \
+  --header "Authorization: Bearer pgc_mcp_xxxxxxxxxxxxxxxx"
+```
+
+## Tools
+
+The advertised tool list is **filtered per agent** — an agent only sees the tools its permissions unlock.
+
+### Discovery
+
+Available whenever the agent can access at least one connection.
+
+| Tool | Description |
+|------|-------------|
+| `list_connections` | Connections the agent can access, with the IAM permissions granted on each |
+| `list_objects` | Browse a connection's catalog. Omit `schema` to list schemas with counts; with `schema`, returns a paginated, filterable list of tables/views (name, kind, estimated rows, size, comment) |
+| `describe_table` | Full detail for one table/view: columns, primary/foreign keys, indexes, constraints, and comments |
+
+`list_objects` is paginated (pass the response's `nextCursor` back as `cursor`) and filterable (`nameFilter`), so agents navigate large schemas top-down instead of pulling a full dump.
+
+### Execution
+
+One tool per IAM permission. Each appears only if the agent holds that permission on at least one connection.
+
+| Tool | Permission | Accepts |
+|------|------------|---------|
+| `explain_query` | `explain` | A single `SELECT` to plan (options: `analyze`, `buffers`, `format`) |
+| `query` | `read` | Read-only statements (`SELECT`, `SHOW`, …) |
+| `write_data` | `write` | `INSERT` / `UPDATE` / `DELETE` / `COPY` |
+| `run_ddl` | `ddl` | `CREATE` / `ALTER` / `DROP` / `GRANT` / `REVOKE` / … |
+
+## Enforcement
+
+Every execution tool runs the submitted SQL through pgconsole's parser-based permission detection before touching the database:
+
+1. The SQL is parsed; each statement's required permission must match the tool's permission. A `DROP` sent to `query`, or a mixed-class batch, is rejected — there is no smuggling a privileged statement through a lower-privileged tool.
+2. The full set of permissions the SQL requires (including ones implied by function calls, e.g. `pg_terminate_backend` requires `admin`) must be a subset of the agent's grants.
+3. The query is executed and recorded in the audit log, tagged with `source: "mcp"`, the tool name, and the agent.
+
+`explain_query` only accepts a single `SELECT` (Postgres `EXPLAIN` rejects other statement kinds); with `analyze` (which actually executes the statement) it additionally requires every permission running the statement would require.
+
+<Note>
+Least privilege: a pure agent gets only what its `agent:` IAM rules grant; a delegated agent can never exceed the user it acts for, and is further narrowed by its `permissions`/`connections` caps. Give each agent the narrowest grant it needs.
+</Note>
