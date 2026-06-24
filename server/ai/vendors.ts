@@ -77,7 +77,9 @@ function decodeHistory(sessionId: string, systemPrompt: string | null): ModelMes
 }
 
 function encodeHistory(messages: ModelMessage[]): string {
-  return Buffer.from(JSON.stringify({ messages: trimHistory(messages) })).toString('base64')
+  const encoded = Buffer.from(JSON.stringify({ messages: trimHistory(messages) })).toString('base64')
+  // Don't emit a blob the decode guard would reject; fall back to a fresh session instead.
+  return Buffer.byteLength(encoded, 'utf8') <= MAX_SESSION_ID_BYTES ? encoded : ''
 }
 
 export async function generateWithVendor(
