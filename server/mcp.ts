@@ -211,7 +211,19 @@ const TOOLS: ToolDef[] = [
   },
 ]
 
-const TOOLS_BY_NAME = new Map(TOOLS.map((t) => [t.name, t]))
+const TOOLS_BY_NAME = new Map<string, ToolDef>()
+for (const t of TOOLS) {
+  if (TOOLS_BY_NAME.has(t.name)) throw new Error(`Duplicate MCP tool name in registry: ${t.name}`)
+  TOOLS_BY_NAME.set(t.name, t)
+}
+
+// The disjoint permission an execution/explain tool enforces. Set by requires(); a missing one
+// is a registry misconfiguration (caught here, with a clear message, rather than as an opaque
+// downstream "requires 'undefined' permission" error).
+function toolPermission(def: ToolDef): Permission {
+  if (!def.permission) throw new Error(`MCP tool '${def.name}' is misconfigured: no permission set`)
+  return def.permission
+}
 
 // The tools a token's access reveals, in registry order.
 function visibleTools(access: Access): ToolDef[] {
@@ -489,7 +501,7 @@ async function execute(principal: Principal, tool: string, expectedPerm: Permiss
 // Shared handler for the execution tools (query/write_data/run_ddl). The disjoint permission to
 // enforce is the tool's own `permission`, set via requires() — declared in one place.
 function executeTool(principal: Principal, args: Record<string, unknown>, def: ToolDef) {
-  return execute(principal, def.name, def.permission!, args)
+  return execute(principal, def.name, toolPermission(def), args)
 }
 
 async function explainQuery(principal: Principal, args: Record<string, unknown>, def: ToolDef) {
@@ -497,7 +509,7 @@ async function explainQuery(principal: Principal, args: Record<string, unknown>,
   const innerSql = reqStr(args, 'sql')
   const have = principal.permissions(connection)
   requireAccessible(have)
-  requireOne(have, def.permission!, def.name)
+  requireOne(have, toolPermission(def), def.name)
 
   const details = buildConnectionDetails(connection)
   if (!details) throw new McpError(ErrorCode.InvalidParams, 'Connection not found')
