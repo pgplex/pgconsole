@@ -157,6 +157,11 @@ export const queryServiceHandlers: ServiceImpl<typeof QueryService> = {
     const start = Date.now();
     let backendPid = 0;
 
+    // The exact text sent to Postgres (multi-statement batches are transaction-wrapped). Built
+    // before the try so the catch can pass it to formatExecutionError — error `position` offsets
+    // index into this string, not the raw req.sql.
+    const executableSql = buildExecutableSql(req.sql, analysis);
+
     try {
       // Get backend PID for cancellation support and monitoring correlation
       const pidResult = await client`SELECT pg_backend_pid() as pid`;
@@ -186,9 +191,7 @@ export const queryServiceHandlers: ServiceImpl<typeof QueryService> = {
         backendPid,
       };
 
-      // Wrap multi-statement SQL in a transaction when safe (see buildExecutableSql).
-      const sql = buildExecutableSql(req.sql, analysis);
-      const result = await client.unsafe(sql);
+      const result = await client.unsafe(executableSql);
 
       const executionTimeMs = Date.now() - start;
 
@@ -252,8 +255,9 @@ export const queryServiceHandlers: ServiceImpl<typeof QueryService> = {
       const errorMessage = err instanceof Error ? err.message : "Query execution failed";
       const executionTimeMs = Date.now() - start;
 
-      // Build a richer error with line context, detail, and hint from PostgreSQL
-      const fullError = formatExecutionError(err, req.sql);
+      // Build a richer error with line context, detail, and hint from PostgreSQL. Format against
+      // the executed SQL so the error `position` maps to the right line.
+      const fullError = formatExecutionError(err, executableSql);
 
       auditSQL(user.email, req.connectionId, details.database, req.sql, false, executionTimeMs, undefined, errorMessage)
       yield {

@@ -567,7 +567,8 @@ async function runAndAudit(
     const message = err instanceof Error ? err.message : 'Query execution failed'
     auditSQL(actor, connection, details.database, auditSql, false, Date.now() - start, undefined, message, opts)
     // Surface the same line/DETAIL/HINT context the UI gets; audit keeps the bare message.
-    throw new Error(formatExecutionError(err, auditSql))
+    // Format against execSql (what Postgres ran) so the error `position` maps to the right line.
+    throw new Error(formatExecutionError(err, execSql))
   }
 }
 

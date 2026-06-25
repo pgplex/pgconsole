@@ -44,4 +44,14 @@ describe('formatExecutionError', () => {
   it('falls back for a non-Error throwable', () => {
     expect(formatExecutionError('weird', 'SELECT 1')).toBe('Query execution failed')
   })
+
+  // Callers must pass the executed SQL (Postgres `position` indexes into what actually ran). For a
+  // transaction-wrapped batch, BEGIN; is line 1, so the user's statements shift down by one.
+  it('maps position onto the executed transaction-wrapped SQL', () => {
+    const raw = 'INSERT INTO t VALUES (1);\nUPDATE nope SET x = 2'
+    const executed = buildExecutableSql(raw, { statementCount: 2, transactionSafe: true })
+    const pos = executed.indexOf('UPDATE') + 1 // 1-based offset into the executed string
+    const err = Object.assign(new Error('relation "nope" does not exist'), { position: String(pos) })
+    expect(formatExecutionError(err, executed)).toContain('LINE 3: UPDATE nope SET x = 2')
+  })
 })
