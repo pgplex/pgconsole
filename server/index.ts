@@ -4,7 +4,7 @@ import cookieParser from 'cookie-parser'
 import { authRouter } from './auth-routes'
 import { connectRouter } from './connect'
 import { mcpRouter, MCP_PATH } from './mcp'
-import { loadConfig, loadConfigFromString, loadDemoConfig, isDemoMode, getBanner, getBranding, getExternalUrl, getAgents } from './lib/config'
+import { loadConfig, loadConfigFromString, loadDemoConfig, isDemoMode, getBanner, getBranding, getExternalUrl, getAgents, isAuthEnabled, getIAMRules } from './lib/config'
 import { startDemoDatabase, stopDemoDatabase } from './lib/demo'
 import { testAllConnections } from './lib/test-connections'
 
@@ -90,6 +90,14 @@ async function start() {
     const demoPort = await startDemoDatabase()
     loadDemoConfig(demoPort)
     console.log(`✓ Demo database started on port ${demoPort}`)
+  }
+
+  // IAM is opt-in: with no [[iam]] rules, every authenticated principal gets full
+  // access. Warn so an empty IAM section with auth enabled isn't a silent misconfig.
+  if (isAuthEnabled() && getIAMRules().length === 0) {
+    console.warn(
+      '⚠ Auth is enabled but no [[iam]] rules are configured — every authenticated user and agent has full access to all connections. Add [[iam]] rules to restrict access.',
+    )
   }
 
   // Test all connections to populate cache
