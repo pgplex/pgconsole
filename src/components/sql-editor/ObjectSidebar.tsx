@@ -187,12 +187,12 @@ export function ObjectSidebar({
         <Tooltip>
           <TooltipTrigger
             render={
-              <span
-                tabIndex={0}
-                className="text-xs text-gray-400 outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+              <button
+                type="button"
+                className="text-xs text-gray-400 outline-none cursor-default rounded focus-visible:ring-2 focus-visible:ring-ring"
               >
                 v{__APP_VERSION__}
-              </span>
+              </button>
             }
           />
           <TooltipContent side="top">
