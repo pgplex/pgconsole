@@ -59,34 +59,23 @@ Run without `--config` to start in demo mode with a bundled sample database.
 
 ### SQL Editor
 
-A full-featured SQL workspace with real-time intelligence powered by a PostgreSQL parser — not regex.
+A full-featured SQL workspace for writing, running, editing, and inspecting PostgreSQL, with parser-powered intelligence in the editor.
 
 - **Autocomplete** — context-aware suggestions for tables, columns, joins, and CTEs
 - **Formatting** — pretty-print or collapse SQL to one line
 - **Error detection** — red underlines with hover tooltips
 - **Code folding** — collapse `SELECT`, `WITH`, and other blocks
 - **Function signature help** — parameter hints as you type
+- **Result grid & inline editing** — virtual-scrolling query results with staged edits, generated SQL previews, and optional AI risk assessment before execution
+- **Schema browser** — inspect tables, views, materialized views, functions, and procedures with metadata, indexes, constraints, triggers, and grants
 
 <table><tr><td>
   <img src="https://raw.githubusercontent.com/pgplex/pgconsole/main/docs/images/features/sql-editor/sql-editor-autocomplete.webp" alt="Autocomplete" />
 </td></tr></table>
 
-### Data Grid & Inline Editing
-
-Query results appear in a virtual-scrolling grid. With `write` permission, you can edit data directly — all changes are staged locally and previewed before execution.
-
-- Double-click a cell to edit, or use the row detail panel
-- Add, delete, and duplicate rows
-- Staged changes are color-coded: green (INSERT), amber (UPDATE), red (DELETE)
-- Preview generated SQL and optionally run an AI risk assessment before executing
-
 <table><tr><td>
   <img src="https://raw.githubusercontent.com/pgplex/pgconsole/main/docs/images/features/sql-editor/sql-editor-staged-changes.webp" alt="Staged changes preview" />
 </td></tr></table>
-
-### Schema Browser
-
-Browse and inspect database objects — tables, views, materialized views, functions, and procedures — with full metadata, indexes, constraints, triggers, and grants.
 
 <table><tr><td>
   <img src="https://raw.githubusercontent.com/pgplex/pgconsole/main/docs/images/features/sql-editor/sql-editor-schema-tab.webp" alt="Schema browser" />
