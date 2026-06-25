@@ -11,13 +11,18 @@ interface AuditLogProps {
 
 export default function AuditLog({ connectionId }: AuditLogProps) {
   const navigate = useNavigate()
-  const { data: connections, isLoading } = useConnections()
+  const { data: connections, isLoading, error } = useConnections()
   const { hasAdmin } = useConnectionPermissions(connectionId)
 
-  // Permissions are derived from the connections query, so defer the admin gate
-  // until it resolves — otherwise admins briefly see the denied state on load.
-  const content = isLoading || !connections ? (
+  // Permissions are derived from the connections query, so resolve its loading,
+  // error, and empty states before gating on hasAdmin — otherwise admins briefly
+  // see the denied state on load, and errors/empty lists show misleading UI.
+  const content = error ? (
+    <p className="text-red-600 text-sm">Failed to load connections.</p>
+  ) : isLoading || !connections ? (
     <div className="text-gray-500 text-sm">Loading…</div>
+  ) : connections.length === 0 ? (
+    <p className="text-gray-600">No connections are configured.</p>
   ) : !hasAdmin ? (
     <p className="text-gray-600">
       You need admin permission on this connection to view its audit log.
