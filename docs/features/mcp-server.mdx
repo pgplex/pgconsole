@@ -85,7 +85,7 @@ One tool per IAM permission. Each appears only if the agent holds that permissio
 | Tool | Permission | Accepts |
 |------|------------|---------|
 | `explain_query` | `explain` | A single `SELECT` to plan (options: `analyze`, `buffers`, `format`) |
-| `query` | `read` | Read-only statements (`SELECT`, `SHOW`, …) |
+| `query` | `read` | Read-only statements (`SELECT`, `SHOW`, …). Results are capped at 1000 rows (override down with `maxRows`) |
 | `write_data` | `write` | `INSERT` / `UPDATE` / `DELETE` / `COPY` |
 | `run_ddl` | `ddl` | `CREATE` / `ALTER` / `DROP` / `GRANT` / `REVOKE` / … |
 
@@ -98,6 +98,8 @@ Every execution tool runs the submitted SQL through pgconsole's parser-based per
 3. The query is executed and recorded in the audit log, tagged with `source: "mcp"`, the tool name, and the agent.
 
 `explain_query` only accepts a single `SELECT` (Postgres `EXPLAIN` rejects other statement kinds); with `analyze` (which actually executes the statement) it additionally requires every permission running the statement would require.
+
+`query` caps its result at 1000 rows so a broad `SELECT` can't flood an agent's context. When capped, the response sets `truncated: true` and reports the full `rowCount` alongside the returned rows — narrow with `LIMIT`/`WHERE`, or pass a smaller `maxRows`. This cap applies to the MCP route only; the web UI is uncapped (it needs the full result set for CSV export and inline editing).
 
 <Note>
 Least privilege: a pure agent gets only what its `agent:` IAM rules grant; a delegated agent can never exceed the user it acts for, and is further narrowed by its `permissions`/`connections` caps. Give each agent the narrowest grant it needs.

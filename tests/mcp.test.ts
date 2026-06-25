@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { loadConfigFromString, getAgents, getAgentById, getAgentByToken } from '../server/lib/config'
-import { selectToolNames, Principal, dispatchTool } from '../server/mcp'
+import { selectToolNames, Principal, dispatchTool, capRows, readMaxRows, MAX_RESULT_ROWS } from '../server/mcp'
 import type { Permission } from '../server/lib/config'
 
 const BASE = `
@@ -251,5 +251,44 @@ describe('selectToolNames', () => {
 
   it('a ddl agent sees run_ddl', () => {
     expect(selectToolNames(true, perms('ddl'))).toContain('run_ddl')
+  })
+})
+
+describe('result cap (capRows / readMaxRows)', () => {
+  const mk = (n: number) => Array.from({ length: n }, (_, i) => i)
+
+  it('passes through when under the cap', () => {
+    expect(capRows(mk(10), MAX_RESULT_ROWS)).toEqual({ rows: mk(10), truncated: false })
+  })
+
+  it('does not truncate exactly at the cap', () => {
+    const r = capRows(mk(MAX_RESULT_ROWS), MAX_RESULT_ROWS)
+    expect(r.truncated).toBe(false)
+    expect(r.rows).toHaveLength(MAX_RESULT_ROWS)
+  })
+
+  it('truncates and flags when over the cap', () => {
+    const r = capRows(mk(MAX_RESULT_ROWS + 5), MAX_RESULT_ROWS)
+    expect(r.truncated).toBe(true)
+    expect(r.rows).toHaveLength(MAX_RESULT_ROWS)
+  })
+
+  it('readMaxRows defaults to the hard cap when absent', () => {
+    expect(readMaxRows({})).toBe(MAX_RESULT_ROWS)
+  })
+
+  it('readMaxRows clamps a larger request to the hard cap', () => {
+    expect(readMaxRows({ maxRows: MAX_RESULT_ROWS * 10 })).toBe(MAX_RESULT_ROWS)
+  })
+
+  it('readMaxRows honors a smaller request', () => {
+    expect(readMaxRows({ maxRows: 25 })).toBe(25)
+  })
+
+  it('readMaxRows rejects non-positive / non-integer values', () => {
+    expect(() => readMaxRows({ maxRows: 0 })).toThrow()
+    expect(() => readMaxRows({ maxRows: -1 })).toThrow()
+    expect(() => readMaxRows({ maxRows: 1.5 })).toThrow()
+    expect(() => readMaxRows({ maxRows: 'all' })).toThrow()
   })
 })
