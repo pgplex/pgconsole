@@ -1,4 +1,6 @@
-// Audit logging - emits JSON lines to stdout
+import { getAuditRetentionDays } from './config'
+
+// Audit logging - emits JSON lines to stdout and keeps recent entries in memory
 interface BaseEvent {
   type: 'audit'
   ts: string
@@ -43,9 +45,41 @@ interface DataExportEvent extends BaseEvent {
   format: string
 }
 
-type AuditEvent = AuthLoginEvent | AuthLogoutEvent | SQLExecuteEvent | DataExportEvent
+export type AuditEvent = AuthLoginEvent | AuthLogoutEvent | SQLExecuteEvent | DataExportEvent
+
+const auditEvents: AuditEvent[] = []
+
+function pruneRetainedEvents(mode: 'prefix' | 'all'): void {
+  const retentionDays = getAuditRetentionDays()
+  if (retentionDays === undefined) return
+
+  const cutoff = Date.now() - retentionDays * 24 * 60 * 60 * 1000
+  if (mode === 'prefix') {
+    let removeCount = 0
+    for (const event of auditEvents) {
+      if (Date.parse(event.ts) >= cutoff) break
+      removeCount++
+    }
+    if (removeCount > 0) {
+      auditEvents.splice(0, removeCount)
+    }
+  } else {
+    let writeIndex = 0
+    for (const event of auditEvents) {
+      if (Date.parse(event.ts) >= cutoff) {
+        auditEvents[writeIndex] = event
+        writeIndex++
+      }
+    }
+    if (writeIndex < auditEvents.length) {
+      auditEvents.splice(writeIndex)
+    }
+  }
+}
 
 function emit(event: AuditEvent): void {
+  auditEvents.push(event)
+  pruneRetainedEvents('prefix')
   console.log(JSON.stringify(event))
 }
 
@@ -128,4 +162,20 @@ export function auditExport(
     row_count,
     format,
   })
+}
+
+export function listAuditEvents(connectionId: string, limit: number): AuditEvent[] {
+  pruneRetainedEvents('all')
+  const entries: AuditEvent[] = []
+  for (let i = auditEvents.length - 1; i >= 0 && entries.length < limit; i--) {
+    const event = auditEvents[i]
+    if ('connection' in event && event.connection === connectionId) {
+      entries.push(event)
+    }
+  }
+  return entries
+}
+
+export function clearAuditEventsForTest(): void {
+  auditEvents.length = 0
 }

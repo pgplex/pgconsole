@@ -20,6 +20,7 @@ export const queryKeys = {
   functionInfo: (connectionId: string, schema: string, name: string, args?: string) => [...queryKeys.all, 'functionInfo', connectionId, schema, name, args] as const,
   functionDependencies: (connectionId: string, schema: string, name: string, args?: string) => [...queryKeys.all, 'functionDependencies', connectionId, schema, name, args] as const,
   processes: (connectionId: string) => [...queryKeys.all, 'processes', connectionId] as const,
+  auditLog: (connectionId: string) => [...queryKeys.all, 'auditLog', connectionId] as const,
 };
 
 export function invalidateSchemaQueries(qc: QueryClient, connectionId: string) {
@@ -323,6 +324,18 @@ export function useTerminateProcess() {
     onSuccess: (_, { connectionId }) => {
       qc.invalidateQueries({ queryKey: queryKeys.processes(connectionId) });
     },
+  });
+}
+
+export function useAuditLogEntries(connectionId: string, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.auditLog(connectionId),
+    queryFn: async () => {
+      const response = await queryClient.getAuditLogEntries({ connectionId, limit: 100 });
+      return response.entries;
+    },
+    enabled: enabled && !!connectionId,
+    refetchInterval: 5000,
   });
 }
 
