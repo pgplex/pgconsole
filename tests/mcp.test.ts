@@ -100,6 +100,32 @@ members = ["agent:bot"]
   })
 })
 
+describe('group members', () => {
+  it('accepts bare user emails', async () => {
+    await loadConfigFromString(`${BASE}
+[[groups]]
+id = "team"
+name = "Team"
+members = ["alice@example.com"]
+`)
+    expect(getAgents()).toHaveLength(0)
+  })
+
+  const prefixed: Array<[string, RegExp]> = [
+    ['agent:bot', /"agent:" prefix/],
+    ['user:alice@example.com', /"user:" prefix/],
+    ['group:other', /"group:" prefix/],
+  ]
+  it.each(prefixed)('rejects %s in a group', async (member, pattern) => {
+    await expect(loadConfigFromString(`${BASE}
+[[groups]]
+id = "team"
+name = "Team"
+members = ["${member}"]
+`)).rejects.toThrow(pattern)
+  })
+})
+
 describe('Principal permission resolution', () => {
   // On the FREE plan IAM is not enforced, so getUserPermissions returns the full set —
   // which lets us verify that a delegated agent's caps actually narrow that base.

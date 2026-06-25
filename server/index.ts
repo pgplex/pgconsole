@@ -3,8 +3,8 @@ import express from 'express'
 import cookieParser from 'cookie-parser'
 import { authRouter } from './auth-routes'
 import { connectRouter } from './connect'
-import { mcpRouter } from './mcp'
-import { loadConfig, loadConfigFromString, loadDemoConfig, isDemoMode, getBanner, getBranding, getExternalUrl, getPlan, getLicenseExpiry, getUsers, getLicenseMaxUsers, getLicenseEmail } from './lib/config'
+import { mcpRouter, MCP_PATH } from './mcp'
+import { loadConfig, loadConfigFromString, loadDemoConfig, isDemoMode, getBanner, getBranding, getExternalUrl, getPlan, getLicenseExpiry, getUsers, getLicenseMaxUsers, getLicenseEmail, getAgents } from './lib/config'
 import { startDemoDatabase, stopDemoDatabase } from './lib/demo'
 import { testAllConnections } from './lib/test-connections'
 import { feature } from '../src/lib/plan'
@@ -139,6 +139,14 @@ async function start() {
     console.log(`Server running on http://localhost:${port}`)
     const browserUrl = __DEV__ ? `http://localhost:5173` : getExternalUrl() || `http://localhost:${port}`
     console.log(`Open in browser: ${browserUrl}`)
+    // MCP endpoint is always mounted, but rejects every request without a bearer
+    // token matching a configured agent — so it's only usable once [[agents]] exist.
+    const agentCount = getAgents().length
+    const mcpStatus = agentCount > 0
+      ? `${agentCount} agent${agentCount === 1 ? '' : 's'}`
+      : 'no agents — add [[agents]] to connect'
+    const mcpBaseUrl = getExternalUrl() || `http://localhost:${port}`
+    console.log(`MCP server on ${mcpBaseUrl}${MCP_PATH} (${mcpStatus})`)
   })
   server.on('error', (err: NodeJS.ErrnoException) => {
     if (err.code === 'EADDRINUSE') {

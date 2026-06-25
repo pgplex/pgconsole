@@ -19,7 +19,7 @@ import { auditSQL } from './lib/audit'
 
 declare const __APP_VERSION__: string
 
-const MCP_PATH = '/mcp'
+export const MCP_PATH = '/mcp'
 const PAGE_SIZE = 100
 
 // A resolved MCP caller — identity + audit actor for one agent. Permission resolution
