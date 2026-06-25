@@ -228,7 +228,7 @@ labels = ["staging"]
 # Permissions: read (SELECT), write (INSERT/UPDATE/DELETE), ddl (CREATE/ALTER/DROP),
 #   admin (full access), explain (EXPLAIN), execute (CALL), export (CSV export)
 #   Use "*" to grant all permissions at once
-# Members: "user:<email>", "group:<id>", "agent:<id>", or "*" (all users; a pure
+# Members: "user:<email>", "group:<id>", "agent:<id>", or "*" (all human users; a pure
 #   agent matches only explicit "agent:<id>" rules, never "*"/"user:"/"group:",
 #   while a delegated agent inherits its user's matches)
 # Connection: specific connection id or "*" for all connections
