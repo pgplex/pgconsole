@@ -521,16 +521,21 @@ async function execute(principal: Principal, tool: string, expectedPerm: Permiss
   const finalSql = buildExecutableSql(rawSql, analysis)
 
   const result = await runAndAudit(principal, tool, connection, details, finalSql, rawSql)
-  // rowCount is the true total from the server (CommandComplete), independent of capping.
+  // rowCount is the true total: result.count is the server's CommandComplete tag; the
+  // result.rows.length fallback is the true total only because the full result is materialized
+  // before capping. Revisit this if a cursor-based fetch is ever introduced (see follow-ups).
   const rowCount = result.count ?? result.rows.length
-  const { rows, truncated } = capRows(result.rows, readMaxRows(args))
+  // maxRows is a `query`-only knob; other tools just get the hard cap (tool schemas aren't
+  // enforced at runtime, so don't honor a maxRows smuggled into write_data/run_ddl).
+  const cap = expectedPerm === 'read' ? readMaxRows(args) : MAX_RESULT_ROWS
+  const { rows, truncated } = capRows(result.rows, cap)
   if (expectedPerm === 'read') {
     return {
       rowCount,
       returnedRows: rows.length,
       truncated,
       ...(truncated
-        ? { note: `Showing the first ${rows.length} of ${rowCount} rows. Add LIMIT/WHERE, or set maxRows (≤${MAX_RESULT_ROWS}), to narrow.` }
+        ? { note: `Showing the first ${rows.length} of ${rowCount} rows. Refine with WHERE/ORDER BY/LIMIT to target the rows you need.` }
         : {}),
       columns: result.columns,
       rows,
