@@ -5,6 +5,7 @@ import SignIn from './components/SignIn';
 import Header from './components/Header';
 import { useSession } from './lib/auth-client';
 import { SQLEditorLayout } from './components/sql-editor';
+import AuditLog from './pages/AuditLog';
 import { useConnections } from './hooks/useQuery';
 import { ToastProvider, toastManager } from './components/ui/toast';
 import { useEditorTabs } from './components/sql-editor/hooks/useEditorTabs';
@@ -25,7 +26,10 @@ function AppLayout() {
 
   const connectionIdFromUrl = searchParams.get('connectionId');
   const isEditorRoute = location.pathname === '/';
+  const isAuditLogRoute = location.pathname === '/audit-log';
   const isSignInRoute = location.pathname === '/signin';
+  // Routes that are scoped to a connection via the connectionId query param.
+  const isConnectionScopedRoute = isEditorRoute || isAuditLogRoute;
 
   const selectedConnectionId = (() => {
     if (!connections || connections.length === 0) return '';
@@ -35,20 +39,29 @@ function AppLayout() {
     return connections[0].id;
   })();
 
-  // Centralized URL state management - handles defaults and redirects
-  const navigation = useEditorNavigation(selectedConnectionId);
+  // Centralized URL state management - handles defaults and redirects.
+  // Only active on the editor route so it doesn't write editor params
+  // (schema/object) or fetch schemas while on other connection-scoped routes.
+  const navigation = useEditorNavigation(selectedConnectionId, isEditorRoute);
 
   const editorTabs = useEditorTabs(selectedConnectionId);
 
   // Validate connection ID and redirect if invalid
   useEffect(() => {
-    if (!connections || connections.length === 0 || !isEditorRoute) return;
+    if (!connections || connections.length === 0 || !isConnectionScopedRoute) return;
 
     const isValidConnection = connectionIdFromUrl && connections.some(c => c.id === connectionIdFromUrl);
 
+    // Reset the once-per-invalid guard whenever we land on a valid connection,
+    // so a later invalid connectionId (on any scoped route) surfaces its toast.
+    if (isValidConnection) {
+      hasShownInvalidToast.current = false;
+      return;
+    }
+
     if (!connectionIdFromUrl) {
-      navigate(`/?connectionId=${connections[0].id}`, { replace: true });
-    } else if (!isValidConnection) {
+      navigate(`${location.pathname}?connectionId=${connections[0].id}`, { replace: true });
+    } else {
       if (!hasShownInvalidToast.current) {
         hasShownInvalidToast.current = true;
         toastManager.add({
@@ -57,9 +70,9 @@ function AppLayout() {
           type: 'error',
         });
       }
-      navigate(`/?connectionId=${connections[0].id}`, { replace: true });
+      navigate(`${location.pathname}?connectionId=${connections[0].id}`, { replace: true });
     }
-  }, [connections, connectionIdFromUrl, isEditorRoute, navigate]);
+  }, [connections, connectionIdFromUrl, isConnectionScopedRoute, location.pathname, navigate]);
 
   if (sessionPending) {
     return (
@@ -127,6 +140,9 @@ function AppLayout() {
                   tablesError={navigation.tablesError}
                 />
               } />
+            <Route path="/audit-log" element={
+              <AuditLog connectionId={selectedConnectionId} />
+            } />
             <Route path="/signin" element={
               <div className="flex flex-1 items-center justify-center">
                 <SignIn />

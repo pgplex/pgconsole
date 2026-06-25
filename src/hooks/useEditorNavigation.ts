@@ -32,7 +32,7 @@ interface UseEditorNavigationResult {
   setObject: (object: SelectedObject | null, options?: { replace?: boolean }) => void
 }
 
-export function useEditorNavigation(connectionId: string): UseEditorNavigationResult {
+export function useEditorNavigation(connectionId: string, enabled = true): UseEditorNavigationResult {
   const [searchParams, setSearchParams] = useSearchParams()
   const prevConnectionIdRef = useRef<string | null>(null)
 
@@ -46,7 +46,7 @@ export function useEditorNavigation(connectionId: string): UseEditorNavigationRe
     isLoading: isSchemasLoading,
     isFetching: isSchemasFetching,
     error: schemasError,
-  } = useSchemas(connectionId)
+  } = useSchemas(connectionId, enabled)
 
   // Determine the effective schema (from URL or default)
   const effectiveSchema = schemaFromUrl && schemas.includes(schemaFromUrl)
@@ -61,7 +61,7 @@ export function useEditorNavigation(connectionId: string): UseEditorNavigationRe
     isLoading: isTablesLoading,
     isFetching: isTablesFetching,
     error: tablesError,
-  } = useTables(connectionId, effectiveSchema || '')
+  } = useTables(connectionId, effectiveSchema || '', enabled)
 
   // Determine the effective object (from URL or default)
   const effectiveObject: SelectedObject | null = (() => {
@@ -108,6 +108,9 @@ export function useEditorNavigation(connectionId: string): UseEditorNavigationRe
 
   // Update URL when resolved state differs from URL state
   useEffect(() => {
+    // Skip entirely when this hook isn't driving the current route (e.g. /audit-log),
+    // so editor-specific params (schema/object) aren't written to unrelated URLs.
+    if (!enabled) return
     // Don't update URL while still loading
     if (!connectionId || isSchemasLoading) return
 
@@ -158,6 +161,7 @@ export function useEditorNavigation(connectionId: string): UseEditorNavigationRe
       )
     }
   }, [
+    enabled,
     connectionId,
     isSchemasLoading,
     isTablesLoading,

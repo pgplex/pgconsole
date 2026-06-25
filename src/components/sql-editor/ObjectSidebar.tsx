@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { RefreshCw } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { RefreshCw, ScrollText } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { SearchInput } from '../ui/search-input'
 import { SchemaSelector } from './SchemaSelector'
@@ -51,6 +52,7 @@ export function ObjectSidebar({
 }: ObjectSidebarProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
 
   // AI schema cache refresh
   const { mutate: refreshSchemaCache } = useRefreshSchemaCache()
@@ -164,6 +166,40 @@ export function ObjectSidebar({
           connectionId={connectionId}
         />
       )}
+      <div className="flex items-center justify-between border-t border-gray-200 px-2 py-1.5">
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Audit Log"
+                onClick={() => navigate(`/audit-log?connectionId=${connectionId}`)}
+              >
+                <ScrollText className="h-4 w-4" />
+              </Button>
+            }
+          />
+          <TooltipContent side="top">
+            Audit Log
+          </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <button
+                type="button"
+                className="text-xs text-gray-400 outline-none cursor-default rounded focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                v{__APP_VERSION__}
+              </button>
+            }
+          />
+          <TooltipContent side="top">
+            Git commit {__GIT_COMMIT__}
+          </TooltipContent>
+        </Tooltip>
+      </div>
     </div>
   )
 }
