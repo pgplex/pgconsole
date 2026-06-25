@@ -14,6 +14,16 @@
 # color = "#7c3aed"  # Optional
 
 # =============================================================================
+# Audit log settings
+# =============================================================================
+# Audit entries are retained in memory for the /audit-log page. By default they
+# are retained indefinitely until server restart. Set retention_days to prune
+# entries older than the configured number of days.
+#
+# [general.audit]
+# retention_days = 30
+
+# =============================================================================
 # Branding
 # =============================================================================
 # Replace the pgconsole logo with your own.

@@ -21,6 +21,7 @@ service QueryService {
   rpc GetFunctionDependencies(GetFunctionDependenciesRequest) returns (GetFunctionDependenciesResponse);
   rpc GetActiveSessions(GetActiveSessionsRequest) returns (GetActiveSessionsResponse);
   rpc TerminateSession(TerminateSessionRequest) returns (TerminateSessionResponse);
+  rpc GetAuditLogEntries(GetAuditLogEntriesRequest) returns (GetAuditLogEntriesResponse);
   rpc AuditExport(AuditExportRequest) returns (AuditExportResponse);
 }
 
@@ -344,6 +345,32 @@ message TerminateSessionRequest {
 message TerminateSessionResponse {
   bool success = 1;
   string error = 2;
+}
+
+message GetAuditLogEntriesRequest {
+  string connection_id = 1;
+  int32 limit = 2;
+}
+
+message GetAuditLogEntriesResponse {
+  repeated AuditLogEntry entries = 1;
+}
+
+message AuditLogEntry {
+  string timestamp = 1;
+  string actor = 2;
+  string action = 3;
+  string connection = 4;
+  string database = 5;
+  string sql = 6;
+  bool success = 7;
+  optional int32 duration_ms = 8;
+  optional int32 row_count = 9;
+  string error = 10;
+  string format = 11;
+  string source = 12;
+  string tool = 13;
+  string agent = 14;
 }
 
 message AuditExportRequest {

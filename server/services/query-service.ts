@@ -7,7 +7,7 @@ import type postgres from "postgres";
 import { getUserFromContext } from "../connect";
 import { hasPermission, requirePermission, requirePermissions, requireAnyPermission } from "../lib/iam";
 import { detectRequiredPermissions } from "../lib/sql-permissions";
-import { auditSQL, auditExport } from "../lib/audit";
+import { auditSQL, auditExport, listAuditEvents } from "../lib/audit";
 
 // Track active queries by queryId -> { pid, connectionDetails, email }
 const activeQueries = new Map<string, { pid: number; details: ConnectionDetails; email: string }>();
@@ -1212,6 +1212,36 @@ export const queryServiceHandlers: ServiceImpl<typeof QueryService> = {
         error: err instanceof Error ? err.message : "Failed to terminate session",
       };
     }
+  },
+
+  async getAuditLogEntries(req, context) {
+    if (!req.connectionId) {
+      throw new ConnectError("connection_id is required", Code.InvalidArgument);
+    }
+
+    const user = await getUserFromContext(context.values);
+    requirePermission(user, req.connectionId, 'admin', 'view audit log');
+    getConnectionDetails(req.connectionId);
+
+    const limit = req.limit > 0 ? Math.min(req.limit, 500) : 100;
+    const entries = listAuditEvents(req.connectionId, limit).map((event) => ({
+      timestamp: event.ts,
+      actor: event.actor,
+      action: event.action,
+      connection: 'connection' in event ? event.connection : '',
+      database: 'database' in event ? event.database : '',
+      sql: 'sql' in event ? event.sql : '',
+      success: 'success' in event ? event.success : true,
+      durationMs: 'duration_ms' in event ? event.duration_ms : undefined,
+      rowCount: 'row_count' in event && event.row_count !== undefined ? event.row_count : undefined,
+      error: 'error' in event && event.error ? event.error : '',
+      format: 'format' in event ? event.format : '',
+      source: 'source' in event && event.source ? event.source : '',
+      tool: 'tool' in event && event.tool ? event.tool : '',
+      agent: 'agent' in event && event.agent ? event.agent : '',
+    }));
+
+    return { entries };
   },
 
   async auditExport(req, context) {

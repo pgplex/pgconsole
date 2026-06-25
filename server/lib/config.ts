@@ -84,6 +84,10 @@ export interface BrandingConfig {
   logo_link?: string
 }
 
+export interface AuditConfig {
+  retentionDays?: number
+}
+
 export interface GroupConfig {
   id: string
   name: string
@@ -102,6 +106,7 @@ interface Config {
   external_url?: string
   banner?: BannerConfig
   branding?: BrandingConfig
+  audit?: AuditConfig
   users: UserConfig[]
   groups: GroupConfig[]
   labels: LabelConfig[]
@@ -136,7 +141,7 @@ function parsePermissionList(raw: unknown, label: string): Permission[] {
   return permissions
 }
 
-const DEFAULT_CONFIG: Config = { users: [], groups: [], labels: [], connections: [], auth: undefined, ai: undefined, agents: [], banner: undefined, branding: undefined, iam: [] }
+const DEFAULT_CONFIG: Config = { users: [], groups: [], labels: [], connections: [], auth: undefined, ai: undefined, agents: [], banner: undefined, branding: undefined, audit: undefined, iam: [] }
 
 let loadedConfig: Config = { ...DEFAULT_CONFIG }
 let demoMode = false
@@ -176,6 +181,7 @@ export async function loadConfigFromString(content: string): Promise<void> {
   // Parse [general] section
   let external_url: string | undefined = undefined
   let banner: BannerConfig | undefined = undefined
+  let audit: AuditConfig | undefined = undefined
   if (parsed.general) {
     const g = parsed.general
     if (g.external_url !== undefined) {
@@ -224,6 +230,21 @@ export async function loadConfigFromString(content: string): Promise<void> {
         }
 
         banner = bannerConfig
+      }
+    }
+
+    // Parse [general.audit] section
+    const rawAudit = g.audit as Record<string, unknown> | undefined
+    if (rawAudit) {
+      const auditConfig: AuditConfig = {}
+      if (rawAudit.retention_days !== undefined) {
+        if (typeof rawAudit.retention_days !== 'number' || !Number.isInteger(rawAudit.retention_days) || rawAudit.retention_days <= 0) {
+          throw new Error('general.audit.retention_days must be a positive integer')
+        }
+        auditConfig.retentionDays = rawAudit.retention_days
+      }
+      if (auditConfig.retentionDays !== undefined) {
+        audit = auditConfig
       }
     }
   }
@@ -747,7 +768,7 @@ export async function loadConfigFromString(content: string): Promise<void> {
     iam.push({ connection, permissions, members })
   }
 
-  loadedConfig = { external_url, banner, branding, users, groups, labels, connections, auth, ai, agents, iam }
+  loadedConfig = { external_url, banner, branding, audit, users, groups, labels, connections, auth, ai, agents, iam }
 }
 
 export function getLabels(): LabelConfig[] {
@@ -808,6 +829,10 @@ export function getBanner(): BannerConfig | undefined {
 
 export function getBranding(): BrandingConfig | undefined {
   return loadedConfig.branding
+}
+
+export function getAuditRetentionDays(): number | undefined {
+  return loadedConfig.audit?.retentionDays
 }
 
 export function getAIConfig(): AIConfig | undefined {

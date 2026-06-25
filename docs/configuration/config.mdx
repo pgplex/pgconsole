@@ -33,6 +33,9 @@ text = "System maintenance scheduled for Sunday 2am UTC"
 link = "https://status.example.com"
 color = "#7c3aed"
 
+[general.audit]
+retention_days = 30
+
 [branding]
 logo = "https://example.com/your-logo.svg"
 logo_link = "https://internal.example.com"
@@ -162,6 +165,19 @@ Optional banner displayed at the top of the page. The banner cannot be dismissed
 text = "System maintenance scheduled for Sunday 2am UTC"
 link = "https://status.example.com"
 color = "#7c3aed"
+```
+
+## Audit Log
+
+Controls in-memory retention for the [Audit Log](/features/audit-log) page. Audit events are always emitted to stdout; this section only controls how long entries stay available in the running pgconsole process.
+
+| Field | Description | Required |
+|-------|-------------|----------|
+| `retention_days` | Positive integer number of days to keep audit entries in memory. When omitted, entries are retained indefinitely until server restart. | |
+
+```toml pgconsole.toml
+[general.audit]
+retention_days = 30
 ```
 
 ## Branding
