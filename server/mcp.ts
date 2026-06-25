@@ -79,17 +79,47 @@ function requireAll(have: Set<Permission>, needed: Set<Permission>, action: stri
   }
 }
 
-// ---- Tool definitions (JSON Schema) ----
+// ---- Tool registry ----
+//
+// One descriptor per tool is the single home for its public schema, its `visible` rule, and its
+// handler. Adding a tool is one array entry — no parallel edits to a permission list or a
+// dispatch switch. `visible` is a predicate over the agent's access (any reachable connection +
+// the union of permissions across them); a tool is advertised iff its predicate holds. Execution
+// tools also set `permission` — the disjoint IAM permission executeTool enforces per statement —
+// via the `requires()` helper, which derives the matching `visible` predicate from it so the
+// permission is written once.
+interface Access {
+  hasConnection: boolean // the agent can touch ≥1 connection
+  union: Set<Permission> // union of its permissions across those connections
+}
+
+interface ToolDef {
+  name: string
+  description: string
+  inputSchema: Record<string, unknown>
+  visible: (access: Access) => boolean
+  permission?: Permission // enforced by executeTool; set on execution tools only
+  handler: (principal: Principal, args: Record<string, unknown>, def: ToolDef) => Promise<unknown>
+}
+
+// An execution tool is visible exactly when the agent holds its permission on some connection,
+// and that same permission is what execute() checks per statement — so it's declared once here.
+const requires = (permission: Permission): Pick<ToolDef, 'visible' | 'permission'> => ({
+  permission,
+  visible: (a) => a.union.has(permission),
+})
 
 const connectionProp = { connection: { type: 'string', description: 'Connection ID (from list_connections)' } }
 
-const TOOLS = {
-  list_connections: {
+const TOOLS: ToolDef[] = [
+  {
     name: 'list_connections',
     description: 'List the Postgres connections this token can access, with the IAM permissions granted on each.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    visible: () => true,
+    handler: listConnections,
   },
-  list_objects: {
+  {
     name: 'list_objects',
     description:
       'Browse a connection\'s catalog. Omit `schema` to list schemas with object counts. With `schema`, returns a paginated, filterable list of tables/views (name, kind, estimated rows, size, comment). Navigate top-down; pass the `nextCursor` from a prior response as `cursor` to fetch the next page.',
@@ -105,8 +135,10 @@ const TOOLS = {
       required: ['connection'],
       additionalProperties: false,
     },
+    visible: (a) => a.hasConnection,
+    handler: listObjects,
   },
-  describe_table: {
+  {
     name: 'describe_table',
     description: 'Full detail for one table/view: columns and types, primary/foreign keys, indexes, constraints, and comments.',
     inputSchema: {
@@ -119,8 +151,10 @@ const TOOLS = {
       required: ['connection', 'schema', 'table'],
       additionalProperties: false,
     },
+    visible: (a) => a.hasConnection,
+    handler: describeTable,
   },
-  explain_query: {
+  {
     name: 'explain_query',
     description:
       'Return the query plan for a single SELECT statement. With `analyze` the statement is actually executed to gather runtime stats (requires the same permissions as running it).',
@@ -136,8 +170,10 @@ const TOOLS = {
       required: ['connection', 'sql'],
       additionalProperties: false,
     },
+    ...requires('explain'),
+    handler: explainQuery,
   },
-  query: {
+  {
     name: 'query',
     description: 'Run a read-only statement (SELECT, SHOW, …) and return the rows.',
     inputSchema: {
@@ -146,8 +182,10 @@ const TOOLS = {
       required: ['connection', 'sql'],
       additionalProperties: false,
     },
+    ...requires('read'),
+    handler: executeTool,
   },
-  write_data: {
+  {
     name: 'write_data',
     description: 'Run a data-modifying statement (INSERT / UPDATE / DELETE / COPY). Returns affected row count and any RETURNING rows.',
     inputSchema: {
@@ -156,8 +194,10 @@ const TOOLS = {
       required: ['connection', 'sql'],
       additionalProperties: false,
     },
+    ...requires('write'),
+    handler: executeTool,
   },
-  run_ddl: {
+  {
     name: 'run_ddl',
     description: 'Run a schema-changing statement (CREATE / ALTER / DROP / GRANT / REVOKE / ...).',
     inputSchema: {
@@ -166,28 +206,28 @@ const TOOLS = {
       required: ['connection', 'sql'],
       additionalProperties: false,
     },
+    ...requires('ddl'),
+    handler: executeTool,
   },
-} as const
+]
 
-// Pure mapping from a token's access to the tool names it should see. The tool surface IS
-// the permission set: discovery tools need ≥1 accessible connection; each execution tool
-// appears only if the token holds its permission on ≥1 connection.
-export function selectToolNames(hasAccessibleConnection: boolean, union: Set<Permission>): string[] {
-  const names = ['list_connections']
-  if (hasAccessibleConnection) {
-    names.push('list_objects', 'describe_table')
-  }
-  if (union.has('explain')) names.push('explain_query')
-  if (union.has('read')) names.push('query')
-  if (union.has('write')) names.push('write_data')
-  if (union.has('ddl')) names.push('run_ddl')
-  return names
+const TOOLS_BY_NAME = new Map(TOOLS.map((t) => [t.name, t]))
+
+// The tools a token's access reveals, in registry order.
+function visibleTools(access: Access): ToolDef[] {
+  return TOOLS.filter((t) => t.visible(access))
 }
 
-// Advertise only the tools this agent's permissions unlock.
+// The tool surface IS the permission set: discovery tools need ≥1 accessible connection; each
+// execution tool appears only if the token holds its permission on ≥1 connection.
+export function selectToolNames(hasAccessibleConnection: boolean, union: Set<Permission>): string[] {
+  return visibleTools({ hasConnection: hasAccessibleConnection, union }).map((t) => t.name)
+}
+
+// Advertise only the tools this agent's access reveals (public shape — no handler/permission).
 function listToolsFor(principal: Principal) {
   const { hasAccessible, union } = agentAccess(principal)
-  return selectToolNames(hasAccessible, union).map((name) => TOOLS[name as keyof typeof TOOLS])
+  return visibleTools({ hasConnection: hasAccessible, union }).map(({ name, description, inputSchema }) => ({ name, description, inputSchema }))
 }
 
 // ---- Result helpers ----
@@ -446,12 +486,18 @@ async function execute(principal: Principal, tool: string, expectedPerm: Permiss
   return { rowCount, rows: result.rows.length ? result.rows : undefined }
 }
 
-async function explainQuery(principal: Principal, args: Record<string, unknown>) {
+// Shared handler for the execution tools (query/write_data/run_ddl). The disjoint permission to
+// enforce is the tool's own `permission`, set via requires() — declared in one place.
+function executeTool(principal: Principal, args: Record<string, unknown>, def: ToolDef) {
+  return execute(principal, def.name, def.permission!, args)
+}
+
+async function explainQuery(principal: Principal, args: Record<string, unknown>, def: ToolDef) {
   const connection = reqStr(args, 'connection')
   const innerSql = reqStr(args, 'sql')
   const have = principal.permissions(connection)
   requireAccessible(have)
-  requireOne(have, 'explain', 'explain_query')
+  requireOne(have, def.permission!, def.name)
 
   const details = buildConnectionDetails(connection)
   if (!details) throw new McpError(ErrorCode.InvalidParams, 'Connection not found')
@@ -557,28 +603,15 @@ function buildServer(principal: Principal): Server {
   return server
 }
 
-// Route a tool call to its implementation. Enforcement (permission gating, per-statement
-// kind checks) runs here and throws before any database I/O; the caller maps thrown errors
-// to MCP error results. Exported so the enforcement paths are unit-testable without a DB.
+// Route a tool call to its registered handler. Enforcement (permission gating, per-statement
+// kind checks) lives in the handlers and throws before any database I/O; the caller maps thrown
+// errors to MCP error results. Dispatch is by name alone — visibility filtering happens in
+// tools/list, while each handler re-checks the permission, so an unadvertised name stays gated.
+// Exported so the enforcement paths are unit-testable without a DB.
 export async function dispatchTool(principal: Principal, name: string, args: Record<string, unknown>) {
-  switch (name) {
-    case 'list_connections':
-      return textResult(await listConnections(principal))
-    case 'list_objects':
-      return textResult(await listObjects(principal, args))
-    case 'describe_table':
-      return textResult(await describeTable(principal, args))
-    case 'explain_query':
-      return textResult(await explainQuery(principal, args))
-    case 'query':
-      return textResult(await execute(principal, 'query', 'read', args))
-    case 'write_data':
-      return textResult(await execute(principal, 'write_data', 'write', args))
-    case 'run_ddl':
-      return textResult(await execute(principal, 'run_ddl', 'ddl', args))
-    default:
-      throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`)
-  }
+  const def = TOOLS_BY_NAME.get(name)
+  if (!def) throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`)
+  return textResult(await def.handler(principal, args, def))
 }
 
 export const mcpRouter = express.Router()
