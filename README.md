@@ -110,6 +110,28 @@ Generate, explain, fix, and rewrite SQL with an AI assistant that understands yo
   <img src="https://raw.githubusercontent.com/pgplex/pgconsole/main/docs/images/features/ai-assistant/ai-risk-assessment.webp" alt="AI risk assessment" />
 </td></tr></table>
 
+### MCP Server
+
+Expose your Postgres connections to external AI agents (Claude, Cursor, IDEs, CI bots) over the [Model Context Protocol](https://modelcontextprotocol.io) — without handing out raw database credentials. Agents connect to a remote MCP endpoint and inherit the same IAM, permission, and audit controls as human users.
+
+- **Remote & token-authenticated** — a Streamable HTTP endpoint at `/mcp`; each agent authenticates with `Authorization: Bearer <token>`
+- **Two agent kinds** — a *pure* service account (authorized by `agent:<id>` IAM rules) or a *delegated* agent that acts on behalf of a user, optionally capped to fewer permissions or connections
+- **Permission-shaped tools** — every agent can `list_connections`; catalog tools (`list_objects`, `describe_table`) appear once it has an accessible connection, and execution tools unlock per grant: `explain_query` (`explain`), `query` (`read`), `write_data` (`write`), `run_ddl` (`ddl`)
+- **Same governance as the UI** — every statement runs through per-statement SQL permission detection, default-deny IAM, and the audit log
+
+```toml
+# A standalone agent, authorized via [[iam]] just like a user
+[[agents]]
+id = "ci-bot"
+name = "CI Pipeline"
+token = "generate-a-long-random-secret"   # openssl rand -hex 32
+
+[[iam]]
+connection = "staging"
+permissions = ["read", "ddl"]
+members = ["agent:ci-bot"]
+```
+
 ### Database Access Control
 
 Fine-grained IAM controls who can read, write, or administer each connection. Permissions are enforced at the application layer — no database roles needed.
