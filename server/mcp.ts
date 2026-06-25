@@ -15,6 +15,7 @@ import { getConnections, getAgentByToken, type AgentConfig } from './lib/config'
 import { withConnection, buildConnectionDetails, type ConnectionDetails } from './lib/db'
 import { getAgentPermissions, type Permission } from './lib/iam'
 import { detectRequiredPermissions } from './lib/sql-permissions'
+import { buildExecutableSql, formatExecutionError } from './lib/execute-sql'
 import { auditSQL } from './lib/audit'
 
 declare const __APP_VERSION__: string
@@ -484,11 +485,9 @@ async function execute(principal: Principal, tool: string, expectedPerm: Permiss
   }
   requireAll(have, analysis.permissions, tool)
 
-  // Wrap safe multi-statement batches in a transaction so a mid-batch failure rolls back.
-  // The `\n;\n` before COMMIT terminates the user's last statement even when it lacks a
-  // trailing semicolon or ends in a line comment (a bare `;` would be swallowed by the comment).
-  const finalSql =
-    analysis.statementCount > 1 && analysis.transactionSafe ? `BEGIN;\n${rawSql}\n;\nCOMMIT;` : rawSql
+  // Wrap safe multi-statement batches in a transaction so a mid-batch failure rolls back
+  // (see buildExecutableSql).
+  const finalSql = buildExecutableSql(rawSql, analysis)
 
   const result = await runAndAudit(principal, tool, connection, details, finalSql, rawSql)
   const rowCount = result.count ?? result.rows.length
@@ -567,7 +566,9 @@ async function runAndAudit(
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Query execution failed'
     auditSQL(actor, connection, details.database, auditSql, false, Date.now() - start, undefined, message, opts)
-    throw new Error(message)
+    // Surface the same line/DETAIL/HINT context the UI gets; audit keeps the bare message.
+    // Format against execSql (what Postgres ran) so the error `position` maps to the right line.
+    throw new Error(formatExecutionError(err, execSql))
   }
 }
 

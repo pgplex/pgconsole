@@ -7,6 +7,7 @@ import type postgres from "postgres";
 import { getUserFromContext } from "../connect";
 import { hasPermission, requirePermission, requirePermissions, requireAnyPermission } from "../lib/iam";
 import { detectRequiredPermissions } from "../lib/sql-permissions";
+import { buildExecutableSql, formatExecutionError } from "../lib/execute-sql";
 import { auditSQL, auditExport, listAuditEvents } from "../lib/audit";
 
 // Track active queries by queryId -> { pid, connectionDetails, email }
@@ -156,6 +157,11 @@ export const queryServiceHandlers: ServiceImpl<typeof QueryService> = {
     const start = Date.now();
     let backendPid = 0;
 
+    // The exact text sent to Postgres (multi-statement batches are transaction-wrapped). Built
+    // before the try so the catch can pass it to formatExecutionError — error `position` offsets
+    // index into this string, not the raw req.sql.
+    const executableSql = buildExecutableSql(req.sql, analysis);
+
     try {
       // Get backend PID for cancellation support and monitoring correlation
       const pidResult = await client`SELECT pg_backend_pid() as pid`;
@@ -185,17 +191,7 @@ export const queryServiceHandlers: ServiceImpl<typeof QueryService> = {
         backendPid,
       };
 
-      // Wrap multi-statement SQL in a transaction when safe. Without this,
-      // PostgreSQL's Simple Query protocol runs each statement in autocommit
-      // mode, so a failure in statement N leaves 1..N-1 committed.
-      // Statements like CREATE DATABASE, VACUUM, CREATE INDEX CONCURRENTLY
-      // cannot run inside a transaction and are excluded.
-      // The `\n;\n` terminates the user's last statement even when it lacks a
-      // trailing semicolon or ends in a line comment, so COMMIT isn't merged into it.
-      const sql = (analysis.statementCount > 1 && analysis.transactionSafe)
-        ? `BEGIN;\n${req.sql}\n;\nCOMMIT;`
-        : req.sql;
-      const result = await client.unsafe(sql);
+      const result = await client.unsafe(executableSql);
 
       const executionTimeMs = Date.now() - start;
 
@@ -259,28 +255,9 @@ export const queryServiceHandlers: ServiceImpl<typeof QueryService> = {
       const errorMessage = err instanceof Error ? err.message : "Query execution failed";
       const executionTimeMs = Date.now() - start;
 
-      // Build a richer error with line context, detail, and hint from PostgreSQL
-      let fullError = errorMessage;
-      const pgErr = err as Record<string, unknown>;
-      const pos = pgErr?.position;
-      if (typeof pos === 'string' && pos) {
-        const charPos = parseInt(pos, 10);
-        if (charPos > 0) {
-          const before = req.sql.slice(0, charPos - 1);
-          const lineNumber = before.split('\n').length;
-          const lines = req.sql.split('\n');
-          const offendingLine = lines[lineNumber - 1];
-          if (offendingLine !== undefined) {
-            fullError = `ERROR at Line ${lineNumber}: ${errorMessage}\nLINE ${lineNumber}: ${offendingLine}`;
-          }
-        }
-      }
-      if (typeof pgErr?.detail === 'string' && pgErr.detail) {
-        fullError += `\nDETAIL: ${pgErr.detail}`;
-      }
-      if (typeof pgErr?.hint === 'string' && pgErr.hint) {
-        fullError += `\nHINT: ${pgErr.hint}`;
-      }
+      // Build a richer error with line context, detail, and hint from PostgreSQL. Format against
+      // the executed SQL so the error `position` maps to the right line.
+      const fullError = formatExecutionError(err, executableSql);
 
       auditSQL(user.email, req.connectionId, details.database, req.sql, false, executionTimeMs, undefined, errorMessage)
       yield {
