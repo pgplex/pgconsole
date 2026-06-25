@@ -144,8 +144,9 @@ async function start() {
     const agentCount = getAgents().length
     const mcpStatus = agentCount > 0
       ? `${agentCount} agent${agentCount === 1 ? '' : 's'}`
-      : `no agents — add [[agents]] to connect`
-    console.log(`MCP server on http://localhost:${port}${MCP_PATH} (${mcpStatus})`)
+      : 'no agents — add [[agents]] to connect'
+    const mcpBaseUrl = getExternalUrl() || `http://localhost:${port}`
+    console.log(`MCP server on ${mcpBaseUrl}${MCP_PATH} (${mcpStatus})`)
   })
   server.on('error', (err: NodeJS.ErrnoException) => {
     if (err.code === 'EADDRINUSE') {

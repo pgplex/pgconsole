@@ -124,7 +124,7 @@ const validSslModes = ['disable', 'prefer', 'require', 'verify-full']
 const VALID_PERMISSIONS: Permission[] = ['read', 'write', 'ddl', 'admin', 'explain', 'execute', 'export']
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 // Reserved [[iam]] member prefixes. Group members are bare emails, so any of these is a mistake.
-const IAM_MEMBER_PREFIX_RE = /^(user|group|agent):/
+const IAM_MEMBER_PREFIX_RE = /^(user|group|agent):/i
 
 // Validate an array of permission strings, expanding '*' to the full set. `label` prefixes errors.
 function parsePermissionList(raw: unknown, label: string): Permission[] {
@@ -360,7 +360,7 @@ export async function loadConfigFromString(content: string): Promise<void> {
       // directly with an [[iam]] rule using member "agent:<id>".
       const prefixMatch = IAM_MEMBER_PREFIX_RE.exec(trimmed)
       if (prefixMatch) {
-        throw new Error(`Group ${groupId} member "${trimmed}": use a bare user email, not a "${prefixMatch[1]}:" prefix (that prefix is [[iam]] member syntax)`)
+        throw new Error(`Group ${groupId} member "${trimmed}": group members are bare user emails; the "${prefixMatch[1]}:" prefix is [[iam]] member syntax`)
       }
       members.push(trimmed)
     }

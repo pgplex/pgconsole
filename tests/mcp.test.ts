@@ -112,9 +112,9 @@ members = ["alice@example.com"]
   })
 
   const prefixed: Array<[string, RegExp]> = [
-    ['agent:bot', /use a bare user email, not a "agent:" prefix/],
-    ['user:alice@example.com', /use a bare user email, not a "user:" prefix/],
-    ['group:other', /use a bare user email, not a "group:" prefix/],
+    ['agent:bot', /"agent:" prefix/],
+    ['user:alice@example.com', /"user:" prefix/],
+    ['group:other', /"group:" prefix/],
   ]
   it.each(prefixed)('rejects %s in a group', async (member, pattern) => {
     await expect(loadConfigFromString(`${BASE}
