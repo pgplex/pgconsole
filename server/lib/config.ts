@@ -1,8 +1,5 @@
 import { parse } from 'smol-toml'
 import { readFileSync } from 'fs'
-import { checkLicense } from './license'
-import { feature } from '../../src/lib/plan'
-import type { PlanTier } from '../../src/lib/plan'
 import type { Vendor } from '../ai/vendors'
 
 export interface LabelConfig {
@@ -103,7 +100,6 @@ export interface IAMRule {
 
 interface Config {
   external_url?: string
-  license?: string
   banner?: BannerConfig
   branding?: BrandingConfig
   users: UserConfig[]
@@ -114,10 +110,6 @@ interface Config {
   ai?: AIConfig
   agents: AgentConfig[]
   iam: IAMRule[]
-  plan: PlanTier
-  licenseExpiry?: number
-  licenseMaxUsers: number
-  licenseEmail?: string
 }
 
 const validSslModes = ['disable', 'prefer', 'require', 'verify-full']
@@ -144,7 +136,7 @@ function parsePermissionList(raw: unknown, label: string): Permission[] {
   return permissions
 }
 
-const DEFAULT_CONFIG: Config = { users: [], groups: [], labels: [], connections: [], auth: undefined, ai: undefined, agents: [], banner: undefined, branding: undefined, license: undefined, iam: [], plan: 'FREE', licenseExpiry: undefined, licenseMaxUsers: 1, licenseEmail: undefined }
+const DEFAULT_CONFIG: Config = { users: [], groups: [], labels: [], connections: [], auth: undefined, ai: undefined, agents: [], banner: undefined, branding: undefined, iam: [] }
 
 let loadedConfig: Config = { ...DEFAULT_CONFIG }
 let demoMode = false
@@ -183,7 +175,6 @@ export async function loadConfigFromString(content: string): Promise<void> {
 
   // Parse [general] section
   let external_url: string | undefined = undefined
-  let license: string | undefined = undefined
   let banner: BannerConfig | undefined = undefined
   if (parsed.general) {
     const g = parsed.general
@@ -199,13 +190,6 @@ export async function loadConfigFromString(content: string): Promise<void> {
       } catch {
         throw new Error(`general.external_url is not a valid URL: ${external_url}`)
       }
-    }
-
-    if (g.license !== undefined) {
-      if (typeof g.license !== 'string') {
-        throw new Error('general.license must be a string')
-      }
-      license = g.license
     }
 
     // Parse [general.banner] section
@@ -763,28 +747,7 @@ export async function loadConfigFromString(content: string): Promise<void> {
     iam.push({ connection, permissions, members })
   }
 
-  // Resolve license → plan tier and maxUsers before assigning config
-  let plan: PlanTier = 'FREE'
-  let licenseExpiry: number | undefined
-  let licenseMaxUsers = 1
-  let licenseEmail: string | undefined
-  if (license) {
-    const result = await checkLicense(license)
-    plan = result.plan
-    licenseExpiry = result.expiry
-    licenseMaxUsers = result.maxUsers
-    licenseEmail = result.email
-  }
-
-  loadedConfig = { external_url, license, banner, branding, users, groups, labels, connections, auth, ai, agents, iam, plan, licenseExpiry, licenseMaxUsers, licenseEmail }
-
-  // Validate user count against license limit
-  if (auth) {
-    const limit = licenseMaxUsers
-    if (users.length > limit) {
-      throw new Error(`Too many [[users]] entries: ${users.length} configured but current license only allows ${limit}. Remove users or upgrade at https://docs.pgconsole.com/configuration/license#purchasing-a-license`)
-    }
-  }
+  loadedConfig = { external_url, banner, branding, users, groups, labels, connections, auth, ai, agents, iam }
 }
 
 export function getLabels(): LabelConfig[] {
@@ -800,7 +763,6 @@ export function getGroupById(id: string): GroupConfig | undefined {
 }
 
 export function getGroupsForUser(email: string): GroupConfig[] {
-  if (!feature('GROUPS', getPlan())) return []
   return loadedConfig.groups.filter((g) => g.members.includes(email))
 }
 
@@ -875,26 +837,6 @@ export function getAgentByToken(token: string): AgentConfig | undefined {
 
 export function getIAMRules(): IAMRule[] {
   return loadedConfig.iam
-}
-
-export function getLicense(): string | undefined {
-  return loadedConfig.license
-}
-
-export function getPlan(): PlanTier {
-  return loadedConfig.plan
-}
-
-export function getLicenseExpiry(): number | undefined {
-  return loadedConfig.licenseExpiry
-}
-
-export function getLicenseMaxUsers(): number {
-  return loadedConfig.licenseMaxUsers
-}
-
-export function getLicenseEmail(): string | undefined {
-  return loadedConfig.licenseEmail
 }
 
 export function loadDemoConfig(port: number): void {

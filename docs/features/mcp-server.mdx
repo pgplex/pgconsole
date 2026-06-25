@@ -24,7 +24,7 @@ Requests without a valid token are rejected with `401`.
 
 ## Identity
 
-Each token belongs to an `[[agents]]` entry — a non-human principal that is **not** a user (no UI login, no license seat). There are two kinds:
+Each token belongs to an `[[agents]]` entry — a non-human principal that is **not** a user (no UI login). There are two kinds:
 
 - **Pure agent** — a standalone service account (e.g. a CI bot). Authorized by IAM rules whose `members` include `agent:<id>`. Audited as `agent:<id>`.
 - **Delegated agent** — acts `on_behalf_of` a user, **inheriting that user's permissions** narrowed by optional `permissions`/`connections` caps. It can never exceed the user and loses access automatically when the user does. Audited as the user, tagged with the agent.

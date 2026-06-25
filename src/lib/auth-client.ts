@@ -80,7 +80,6 @@ export async function signOut() {
 
 export interface AuthProvider {
   name: string
-  requiredPlan?: string
 }
 
 export async function getProviders(): Promise<AuthProvider[]> {

@@ -2,9 +2,9 @@
 title: Database Access Control
 ---
 
-<Info>This feature requires the **Team** or **Enterprise** plan.</Info>
-
 pgconsole provides fine-grained access control for your database connections. You define [IAM rules](/configuration/config#access-control-iam) in your configuration file, and pgconsole enforces them — rejecting unauthorized queries before they reach the database.
+
+<Info>IAM is **opt-in**. With no `[[iam]]` rules defined, every authenticated user has full access to all connections. Enforcement begins the moment you define your first rule — from then on, any user without a matching rule is denied.</Info>
 
 ```mermaid
 flowchart LR
@@ -19,17 +19,17 @@ Unlike PostgreSQL's built-in role system (`GRANT`/`REVOKE`), pgconsole's access 
 
 ![IAM Permission Denied](/images/features/database-access-control/iam-permission-denied.webp)
 
-Access control in pgconsole works on three principles:
+Once at least one rule is defined, access control works on three principles:
 
 - **Default deny** — users have no access unless a rule explicitly grants it
 - **Connection-scoped** — permissions are granted per database connection, not globally
 - **Disjoint permissions** — each permission level is independent; `write` does not imply `read`
 
-When IAM is enabled, users only see connections they have at least one permission for. Connections without any matching rules are hidden entirely.
+While IAM is active, users only see connections they have at least one permission for. Connections without any matching rules are hidden entirely.
 
 ## Prerequisites
 
-- [Authentication](/configuration/config#authentication) must be enabled; otherwise, all users get full access to all connections
+- [Authentication](/configuration/config#authentication) must be enabled, and at least one `[[iam]]` rule must be defined; otherwise, all users get full access to all connections
 - Users must be defined in [`[[users]]`](/configuration/config#users)
 - Groups (if used) must be defined in [`[[groups]]`](/configuration/config#groups)
 

@@ -1,19 +1,11 @@
 import { Router, type Request, type Response } from 'express'
 import crypto from 'crypto'
 import { createToken, verifyToken, authenticateBasic } from './lib/auth'
-import { getAuthConfig, isAuthEnabled, getGroupsForUser, getPlan, isOwner, getUsers } from './lib/config'
+import { getAuthConfig, isAuthEnabled, getGroupsForUser, isOwner, getUsers } from './lib/config'
 import { auditLogin, auditLogout } from './lib/audit'
 import { registerGoogleOAuth } from './lib/oauth/google'
 import { registerKeycloakOAuth } from './lib/oauth/keycloak'
 import { registerOktaOAuth } from './lib/oauth/okta'
-import { feature, requiredPlan } from '../src/lib/plan'
-import type { Feature } from '../src/lib/plan'
-
-const SSO_FEATURE: Record<string, Feature> = {
-  google: 'SSO_GOOGLE',
-  keycloak: 'SSO_KEYCLOAK',
-  okta: 'SSO_OKTA',
-}
 
 const router = Router()
 
@@ -123,28 +115,6 @@ const oauthOpts = {
   generateState,
   getClientIp,
 }
-// Gate OAuth routes by plan
-router.use(['/google', '/google/callback'], (req: Request, res: Response, next) => {
-  if (!feature('SSO_GOOGLE', getPlan())) {
-    return res.status(403).json({ error: 'Google SSO requires Team plan or higher' })
-  }
-  next()
-})
-
-router.use(['/keycloak', '/keycloak/callback'], (req: Request, res: Response, next) => {
-  if (!feature('SSO_KEYCLOAK', getPlan())) {
-    return res.status(403).json({ error: 'Keycloak SSO requires Enterprise plan' })
-  }
-  next()
-})
-
-router.use(['/okta', '/okta/callback'], (req: Request, res: Response, next) => {
-  if (!feature('SSO_OKTA', getPlan())) {
-    return res.status(403).json({ error: 'Okta SSO requires Enterprise plan' })
-  }
-  next()
-})
-
 registerGoogleOAuth(router, oauthOpts)
 registerKeycloakOAuth(router, oauthOpts)
 registerOktaOAuth(router, oauthOpts)
@@ -156,16 +126,10 @@ router.get('/providers', (_req: Request, res: Response) => {
   }
 
   const config = getAuthConfig()
-  const plan = getPlan()
-  const providers: Array<{ name: string; requiredPlan?: string }> = []
+  const providers: Array<{ name: string }> = []
   if (getUsers().some(u => u.password)) providers.push({ name: 'basic' })
   for (const provider of config?.providers ?? []) {
-    const feat = SSO_FEATURE[provider.type]
-    if (feat && !feature(feat, plan)) {
-      providers.push({ name: provider.type, requiredPlan: requiredPlan(feat) })
-    } else {
-      providers.push({ name: provider.type })
-    }
+    providers.push({ name: provider.type })
   }
 
   return res.json({ providers })

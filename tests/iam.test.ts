@@ -1,25 +1,17 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { getUserPermissions, hasPermission, getAccessibleConnectionIds, getAgentPermissions } from '../server/lib/iam'
 import * as config from '../server/lib/config'
-import { feature as featureCheck } from '../src/lib/plan'
 
 // Mock config module
 vi.mock('../server/lib/config', () => ({
   getIAMRules: vi.fn(),
   getGroupsForUser: vi.fn(),
   isAuthEnabled: vi.fn(),
-  getPlan: vi.fn(),
-}))
-
-vi.mock('../src/lib/plan', () => ({
-  feature: vi.fn(),
 }))
 
 describe('getUserPermissions', () => {
   beforeEach(() => {
     vi.resetAllMocks()
-    // Default: IAM feature enabled (existing tests assume this)
-    vi.mocked(featureCheck).mockReturnValue(true)
   })
 
   it('returns all permissions when auth is disabled', () => {
@@ -31,9 +23,20 @@ describe('getUserPermissions', () => {
     expect(perms).toEqual(new Set(['read', 'write', 'ddl', 'admin', 'explain', 'execute', 'export']))
   })
 
-  it('returns empty set when no rules match', () => {
+  it('returns all permissions when no IAM rules are defined (IAM off by default)', () => {
     vi.mocked(config.isAuthEnabled).mockReturnValue(true)
     vi.mocked(config.getIAMRules).mockReturnValue([])
+    vi.mocked(config.getGroupsForUser).mockReturnValue([])
+
+    const perms = getUserPermissions('alice', 'prod')
+    expect(perms).toEqual(new Set(['read', 'write', 'ddl', 'admin', 'explain', 'execute', 'export']))
+  })
+
+  it('returns empty set when rules are defined but none match', () => {
+    vi.mocked(config.isAuthEnabled).mockReturnValue(true)
+    vi.mocked(config.getIAMRules).mockReturnValue([
+      { connection: 'prod', permissions: ['read'], members: ['user:someone-else'] },
+    ])
     vi.mocked(config.getGroupsForUser).mockReturnValue([])
 
     const perms = getUserPermissions('alice', 'prod')
@@ -118,23 +121,11 @@ describe('getUserPermissions', () => {
     const perms = getUserPermissions('alice', 'prod')
     expect(perms).toEqual(new Set(['read', 'write']))
   })
-
-  it('returns all permissions when IAM feature is not enabled by plan', () => {
-    vi.mocked(config.isAuthEnabled).mockReturnValue(true)
-    vi.mocked(featureCheck).mockReturnValue(false)
-    vi.mocked(config.getIAMRules).mockReturnValue([])
-    vi.mocked(config.getGroupsForUser).mockReturnValue([])
-
-    const perms = getUserPermissions('alice', 'prod')
-    expect(perms).toEqual(new Set(['read', 'write', 'ddl', 'admin', 'explain', 'execute', 'export']))
-  })
 })
 
 describe('hasPermission', () => {
   beforeEach(() => {
     vi.resetAllMocks()
-    // Default: IAM feature enabled (existing tests assume this)
-    vi.mocked(featureCheck).mockReturnValue(true)
   })
 
   it('returns true when user has the permission', () => {
@@ -153,7 +144,6 @@ describe('hasPermission', () => {
 describe('getAgentPermissions', () => {
   beforeEach(() => {
     vi.resetAllMocks()
-    vi.mocked(featureCheck).mockReturnValue(true)
     vi.mocked(config.isAuthEnabled).mockReturnValue(true)
     vi.mocked(config.getGroupsForUser).mockReturnValue([])
   })
@@ -211,8 +201,6 @@ describe('getAgentPermissions', () => {
 describe('getAccessibleConnectionIds', () => {
   beforeEach(() => {
     vi.resetAllMocks()
-    // Default: IAM feature enabled (existing tests assume this)
-    vi.mocked(featureCheck).mockReturnValue(true)
   })
 
   it('returns all connections when auth is disabled', () => {
@@ -236,9 +224,11 @@ describe('getAccessibleConnectionIds', () => {
     expect(result).toEqual(['conn1', 'conn3'])
   })
 
-  it('returns empty array when no permissions', () => {
+  it('returns empty array when rules are defined but none match', () => {
     vi.mocked(config.isAuthEnabled).mockReturnValue(true)
-    vi.mocked(config.getIAMRules).mockReturnValue([])
+    vi.mocked(config.getIAMRules).mockReturnValue([
+      { connection: 'conn1', permissions: ['read'], members: ['user:someone-else'] },
+    ])
     vi.mocked(config.getGroupsForUser).mockReturnValue([])
 
     const result = getAccessibleConnectionIds('alice', ['conn1', 'conn2'])

@@ -12,8 +12,6 @@ import { useEditorNavigation } from './hooks/useEditorNavigation';
 import { Button } from './components/ui/button';
 import { Banner } from './components/Banner';
 import { useSetting } from './hooks/useSetting';
-import { SubscriptionModalProvider } from './components/SubscriptionModal';
-import { LicenseExpiryBanner } from './components/LicenseExpiryBanner';
 import { DemoBanner } from './components/DemoBanner';
 
 function AppLayout() {
@@ -103,13 +101,11 @@ function AppLayout() {
 
   return (
     <ToastProvider>
-      <SubscriptionModalProvider>
-        <div className="flex flex-col h-screen w-screen overflow-hidden bg-white">
+      <div className="flex flex-col h-screen w-screen overflow-hidden bg-white">
           {!isSignInRoute && demo && <DemoBanner />}
           {!isSignInRoute && banner?.text && (
             <Banner text={banner.text} link={banner.link} color={banner.color} />
           )}
-          {!isSignInRoute && <LicenseExpiryBanner />}
           {!isSignInRoute && <Header selectedConnectionId={selectedConnectionId} />}
           <div className="flex flex-1 overflow-hidden">
             <Routes>
@@ -139,8 +135,7 @@ function AppLayout() {
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>
-        </div>
-      </SubscriptionModalProvider>
+      </div>
     </ToastProvider>
   );
 }

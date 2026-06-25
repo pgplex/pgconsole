@@ -52,7 +52,6 @@
         "pages": [
           "configuration/server-flags",
           "configuration/external-access",
-          "configuration/license",
           "configuration/config"
         ]
       }

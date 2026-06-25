@@ -1,6 +1,5 @@
 import { ConnectError, Code } from '@connectrpc/connect'
-import { getIAMRules, getGroupsForUser, isAuthEnabled, getPlan } from './config'
-import { feature } from '../../src/lib/plan'
+import { getIAMRules, getGroupsForUser, isAuthEnabled } from './config'
 import type { Permission, AgentConfig, IAMRule } from './config'
 
 export type { Permission }
@@ -63,13 +62,15 @@ export function requireAnyPermission(
 }
 
 // Union the permissions from every IAM rule that applies to this connection and whose
-// members satisfy `matches`. Auth-disabled / IAM-not-licensed short-circuit to full access.
+// members satisfy `matches`. IAM is opt-in: with auth disabled or no [[iam]] rules
+// defined, every principal gets full access. Defining the first rule turns enforcement on.
 function resolvePermissions(connectionId: string, matches: (rule: IAMRule) => boolean): Set<Permission> {
-  if (!isAuthEnabled() || !feature('IAM', getPlan())) {
+  const rules = getIAMRules()
+  if (!isAuthEnabled() || rules.length === 0) {
     return new Set(ALL_PERMISSIONS)
   }
   const permissions = new Set<Permission>()
-  for (const rule of getIAMRules()) {
+  for (const rule of rules) {
     if (rule.connection !== '*' && rule.connection !== connectionId) {
       continue
     }
@@ -88,7 +89,7 @@ function resolvePermissions(connectionId: string, matches: (rule: IAMRule) => bo
  */
 export function getUserPermissions(email: string, connectionId: string): Set<Permission> {
   // Resolve the user's groups lazily — skipped entirely when resolvePermissions
-  // short-circuits (auth off / IAM unlicensed) or when no rule has a group: member.
+  // short-circuits (auth off / no IAM rules) or when no rule has a group: member.
   let groupIds: Set<string> | undefined
   return resolvePermissions(connectionId, rule =>
     rule.members.some(member => {
@@ -112,9 +113,8 @@ export function hasPermission(email: string, connectionId: string, permission: P
 
 /**
  * Get an agent's effective permissions for a connection. Like `getUserPermissions`, this
- * grants full access when auth is disabled or the plan doesn't include IAM (the shared
- * `resolvePermissions` short-circuit — IAM is a paid feature, applied uniformly to every
- * principal). When IAM is active:
+ * grants full access when auth is disabled or no IAM rules are defined (the shared
+ * `resolvePermissions` short-circuit). Once IAM is active:
  * - Pure agent: matched ONLY by explicit `agent:<id>` rules — `*`/`group:`/`user:` rules
  *   never apply, so no agent silently inherits a broad "everyone" grant.
  * - Delegated agent (`onBehalfOf`): the user's grant, narrowed by the connection/permission
