@@ -59,8 +59,8 @@ export default function AuditLog({ connectionId }: AuditLogProps) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {entries.map((entry, index) => (
-            <TableRow key={`${entry.timestamp}-${entry.action}-${index}`}>
+          {entries.map((entry) => (
+            <TableRow key={`${entry.timestamp}-${entry.action}-${entry.actor}`}>
               <TableCell className="text-gray-600">
                 {new Date(entry.timestamp).toLocaleString()}
               </TableCell>
