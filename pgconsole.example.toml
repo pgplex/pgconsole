@@ -214,3 +214,41 @@ labels = ["staging"]
 # connection = "staging"
 # permissions = ["read", "write"]
 # members = ["group:dev-team"]
+
+# =============================================================================
+# Agents (optional) - non-human principals for the MCP server
+# =============================================================================
+# Each agent authenticates to the MCP endpoint (/mcp) with a bearer token:
+#   Authorization: Bearer <token>
+# An agent is one of two kinds:
+#
+# 1. Pure agent (no on_behalf_of) - a standalone service account.
+#    Authorized by [[iam]] rules whose members include "agent:<id>".
+#    Do NOT set permissions/connections here; grant access via [[iam]] instead.
+#
+# 2. Delegated agent (on_behalf_of set) - acts for a user, inheriting that
+#    user's permissions. The optional permissions/connections fields are caps
+#    that further narrow (intersect with) the user's grant.
+#
+# Fields: id (required), token (required), name (optional, defaults to id),
+#   on_behalf_of (user email), permissions (delegated only), connections (delegated only)
+#
+# # Pure agent - authorize it with an [[iam]] rule using member "agent:<id>"
+# [[agents]]
+# id = "ci-bot"
+# name = "CI Pipeline"
+# token = "generate-a-long-random-secret"   # openssl rand -hex 32
+#
+# [[iam]]
+# connection = "staging"
+# permissions = ["read", "ddl"]
+# members = ["agent:ci-bot"]
+#
+# # Delegated agent - acts as alice, capped to read-only on the local connection
+# [[agents]]
+# id = "alice-assistant"
+# name = "Alice's Assistant"
+# token = "another-long-random-secret"
+# on_behalf_of = "alice@example.com"   # must match a [[users]] email
+# permissions = ["read"]               # cap: intersected with alice's IAM grant
+# connections = ["local"]              # cap: connection IDs the agent may touch
