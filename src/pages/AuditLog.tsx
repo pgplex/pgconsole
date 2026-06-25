@@ -11,28 +11,31 @@ interface AuditLogProps {
 
 export default function AuditLog({ connectionId }: AuditLogProps) {
   const navigate = useNavigate()
-  const { data: connections } = useConnections()
+  const { data: connections, isLoading } = useConnections()
   const { hasAdmin } = useConnectionPermissions(connectionId)
 
-  // Admin-only page. Gate on the selected connection's admin permission.
-  if (!hasAdmin) {
-    return (
-      <div className="flex-1 bg-white text-gray-900 overflow-auto">
-        <div className="p-8">
-          <h1 className="text-3xl font-bold mb-2">Audit Log</h1>
-          <p className="text-gray-600">
-            You need admin permission on this connection to view its audit log.
-          </p>
-        </div>
-      </div>
-    )
-  }
+  // Permissions are derived from the connections query, so defer the admin gate
+  // until it resolves — otherwise admins briefly see the denied state on load.
+  const content = isLoading || !connections ? (
+    <div className="text-gray-500 text-sm">Loading…</div>
+  ) : !hasAdmin ? (
+    <p className="text-gray-600">
+      You need admin permission on this connection to view its audit log.
+    </p>
+  ) : (
+    <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-gray-300 py-16 text-gray-500">
+      <ScrollText size={32} />
+      <p className="text-sm">No audit log entries yet.</p>
+    </div>
+  )
 
   return (
     <div className="flex-1 bg-white text-gray-900 overflow-auto">
       <div className="p-8">
         <h1 className="text-3xl font-bold mb-8">Audit Log</h1>
 
+        {/* Connection selector stays outside the gate so a user without admin on the
+            current connection can still switch to one where they do have access. */}
         <div className="space-y-2 max-w-xs mb-8">
           <Label htmlFor="audit-connection">Connection</Label>
           <Select
@@ -52,10 +55,7 @@ export default function AuditLog({ connectionId }: AuditLogProps) {
           </Select>
         </div>
 
-        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-gray-300 py-16 text-gray-500">
-          <ScrollText size={32} />
-          <p className="text-sm">No audit log entries yet.</p>
-        </div>
+        {content}
       </div>
     </div>
   )

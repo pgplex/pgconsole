@@ -39,8 +39,10 @@ function AppLayout() {
     return connections[0].id;
   })();
 
-  // Centralized URL state management - handles defaults and redirects
-  const navigation = useEditorNavigation(selectedConnectionId);
+  // Centralized URL state management - handles defaults and redirects.
+  // Only active on the editor route so it doesn't write editor params
+  // (schema/object) or fetch schemas while on other connection-scoped routes.
+  const navigation = useEditorNavigation(selectedConnectionId, isEditorRoute);
 
   const editorTabs = useEditorTabs(selectedConnectionId);
 
@@ -50,9 +52,16 @@ function AppLayout() {
 
     const isValidConnection = connectionIdFromUrl && connections.some(c => c.id === connectionIdFromUrl);
 
+    // Reset the once-per-invalid guard whenever we land on a valid connection,
+    // so a later invalid connectionId (on any scoped route) surfaces its toast.
+    if (isValidConnection) {
+      hasShownInvalidToast.current = false;
+      return;
+    }
+
     if (!connectionIdFromUrl) {
       navigate(`${location.pathname}?connectionId=${connections[0].id}`, { replace: true });
-    } else if (!isValidConnection) {
+    } else {
       if (!hasShownInvalidToast.current) {
         hasShownInvalidToast.current = true;
         toastManager.add({

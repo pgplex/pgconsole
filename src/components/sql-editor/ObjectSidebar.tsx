@@ -173,6 +173,7 @@ export function ObjectSidebar({
               <Button
                 variant="ghost"
                 size="icon-sm"
+                aria-label="Audit Log"
                 onClick={() => navigate(`/audit-log?connectionId=${connectionId}`)}
               >
                 <ScrollText className="h-4 w-4" />
@@ -185,7 +186,14 @@ export function ObjectSidebar({
         </Tooltip>
         <Tooltip>
           <TooltipTrigger
-            render={<span className="text-xs text-gray-400">v{__APP_VERSION__}</span>}
+            render={
+              <span
+                tabIndex={0}
+                className="text-xs text-gray-400 outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+              >
+                v{__APP_VERSION__}
+              </span>
+            }
           />
           <TooltipContent side="top">
             Git commit {__GIT_COMMIT__}

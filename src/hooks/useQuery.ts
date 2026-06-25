@@ -38,26 +38,26 @@ export const connectionKeys = {
 };
 
 // Get schemas for a connection
-export function useSchemas(connectionId: string) {
+export function useSchemas(connectionId: string, enabled = true) {
   return useQuery({
     queryKey: queryKeys.schemas(connectionId),
     queryFn: async () => {
       const response = await queryClient.getSchemas({ connectionId });
       return response.schemas;
     },
-    enabled: !!connectionId,
+    enabled: enabled && !!connectionId,
   });
 }
 
 // Get tables for a schema
-export function useTables(connectionId: string, schema: string) {
+export function useTables(connectionId: string, schema: string, enabled = true) {
   return useQuery({
     queryKey: queryKeys.tables(connectionId, schema),
     queryFn: async () => {
       const response = await queryClient.getTables({ connectionId, schema });
       return response.tables;
     },
-    enabled: !!connectionId && !!schema,
+    enabled: enabled && !!connectionId && !!schema,
   });
 }
 
