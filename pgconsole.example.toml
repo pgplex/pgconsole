@@ -181,12 +181,12 @@ labels = ["staging"]
 # [[groups]]
 # id = "dev-team"
 # name = "Development Team"
-# members = ["developer", "alice@example.com"]
+# members = ["developer@example.com", "alice@example.com"]
 #
 # [[groups]]
 # id = "dba"
 # name = "Database Administrators"
-# members = ["admin"]
+# members = ["admin@example.com"]
 
 # =============================================================================
 # Agents (optional) - non-human principals for the MCP server
@@ -228,7 +228,8 @@ labels = ["staging"]
 # Permissions: read (SELECT), write (INSERT/UPDATE/DELETE), ddl (CREATE/ALTER/DROP),
 #   admin (full access), explain (EXPLAIN), execute (CALL), export (CSV export)
 #   Use "*" to grant all permissions at once
-# Members: "user:username", "group:groupid", "agent:agentid", or "*" for all users
+# Members: "user:<email>", "group:<id>", "agent:<id>", or "*" (all users; agents
+#   match only explicit "agent:<id>" rules, never "*"/"user:"/"group:")
 # Connection: specific connection id or "*" for all connections
 # Multiple matching rules are unioned (user gets all permissions from all matching rules)
 # Default deny: no matching rule = no access (connection hidden from user)
@@ -241,7 +242,7 @@ labels = ["staging"]
 # [[iam]]
 # connection = "local"
 # permissions = ["*"]
-# members = ["user:admin", "group:dba"]
+# members = ["user:admin@example.com", "group:dba"]
 #
 # [[iam]]
 # connection = "staging"
