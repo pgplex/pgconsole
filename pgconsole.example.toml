@@ -228,8 +228,9 @@ labels = ["staging"]
 # Permissions: read (SELECT), write (INSERT/UPDATE/DELETE), ddl (CREATE/ALTER/DROP),
 #   admin (full access), explain (EXPLAIN), execute (CALL), export (CSV export)
 #   Use "*" to grant all permissions at once
-# Members: "user:<email>", "group:<id>", "agent:<id>", or "*" (all users; agents
-#   match only explicit "agent:<id>" rules, never "*"/"user:"/"group:")
+# Members: "user:<email>", "group:<id>", "agent:<id>", or "*" (all users; a pure
+#   agent matches only explicit "agent:<id>" rules, never "*"/"user:"/"group:",
+#   while a delegated agent inherits its user's matches)
 # Connection: specific connection id or "*" for all connections
 # Multiple matching rules are unioned (user gets all permissions from all matching rules)
 # Default deny: no matching rule = no access (connection hidden from user)
