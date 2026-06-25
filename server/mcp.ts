@@ -23,6 +23,12 @@ declare const __APP_VERSION__: string
 export const MCP_PATH = '/mcp'
 const PAGE_SIZE = 100
 
+// Hard cap on rows returned by the execution tools, so a broad SELECT can't flood an agent's
+// context. The full result is fetched, then capped; a `truncated` flag tells the agent to narrow
+// (LIMIT/WHERE or a smaller maxRows). MCP only — the UI route is intentionally uncapped because it
+// needs the full result set for CSV export and inline editing.
+export const MAX_RESULT_ROWS = 1000
+
 // A resolved MCP caller — identity + audit actor for one agent. Permission resolution
 // itself lives in iam.ts (getAgentPermissions), the single home for that decision.
 export class Principal {
@@ -176,10 +182,19 @@ const TOOLS: ToolDef[] = [
   },
   {
     name: 'query',
-    description: 'Run a read-only statement (SELECT, SHOW, …) and return the rows.',
+    description: `Run a read-only statement (SELECT, SHOW, …) and return the rows. Results are capped at ${MAX_RESULT_ROWS} rows; when capped, \`truncated\` is true and \`rowCount\` is the full total — narrow with LIMIT/WHERE or a smaller \`maxRows\`.`,
     inputSchema: {
       type: 'object',
-      properties: { ...connectionProp, sql: { type: 'string', description: 'A read-only statement, e.g. SELECT or SHOW.' } },
+      properties: {
+        ...connectionProp,
+        sql: { type: 'string', description: 'A read-only statement, e.g. SELECT or SHOW.' },
+        maxRows: {
+          type: 'integer',
+          minimum: 1,
+          maximum: MAX_RESULT_ROWS,
+          description: `Max rows to return (default and hard cap ${MAX_RESULT_ROWS}). Rows beyond this are dropped and \`truncated\` is set.`,
+        },
+      },
       required: ['connection', 'sql'],
       additionalProperties: false,
     },
@@ -269,6 +284,22 @@ function optStr(args: Record<string, unknown>, name: string): string | undefined
   if (typeof v !== 'string') throw new Error(`'${name}' must be a string`)
   const trimmed = v.trim()
   return trimmed === '' ? undefined : trimmed
+}
+
+// The effective row cap for an execution call: the optional `maxRows` arg clamped to the hard
+// ceiling, defaulting to the ceiling when absent.
+export function readMaxRows(args: Record<string, unknown>): number {
+  const v = args['maxRows']
+  if (v === undefined || v === null) return MAX_RESULT_ROWS
+  if (typeof v !== 'number' || !Number.isInteger(v) || v < 1) {
+    throw new Error("'maxRows' must be a positive integer")
+  }
+  return Math.min(v, MAX_RESULT_ROWS)
+}
+
+// Cap a materialized result set to `cap` rows, reporting whether any were dropped.
+export function capRows<T>(rows: T[], cap: number): { rows: T[]; truncated: boolean } {
+  return rows.length > cap ? { rows: rows.slice(0, cap), truncated: true } : { rows, truncated: false }
 }
 
 // ---- Tool implementations ----
@@ -490,11 +521,27 @@ async function execute(principal: Principal, tool: string, expectedPerm: Permiss
   const finalSql = buildExecutableSql(rawSql, analysis)
 
   const result = await runAndAudit(principal, tool, connection, details, finalSql, rawSql)
+  // rowCount is the true total from the server (CommandComplete), independent of capping.
   const rowCount = result.count ?? result.rows.length
+  const { rows, truncated } = capRows(result.rows, readMaxRows(args))
   if (expectedPerm === 'read') {
-    return { rowCount, columns: result.columns, rows: result.rows }
+    return {
+      rowCount,
+      returnedRows: rows.length,
+      truncated,
+      ...(truncated
+        ? { note: `Showing the first ${rows.length} of ${rowCount} rows. Add LIMIT/WHERE, or set maxRows (≤${MAX_RESULT_ROWS}), to narrow.` }
+        : {}),
+      columns: result.columns,
+      rows,
+    }
   }
-  return { rowCount, rows: result.rows.length ? result.rows : undefined }
+  // write/ddl: RETURNING rows (usually few); surface the cap only when it actually bit.
+  return {
+    rowCount,
+    ...(truncated ? { returnedRows: rows.length, truncated: true } : {}),
+    rows: rows.length ? rows : undefined,
+  }
 }
 
 // Shared handler for the execution tools (query/write_data/run_ddl). The disjoint permission to
