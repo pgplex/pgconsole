@@ -1,9 +1,8 @@
 import { useNavigate } from 'react-router-dom';
-import { LogOut, CreditCard } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { ConnectionSwitcher } from './ConnectionSwitcher';
 import { Menu, MenuTrigger, MenuPopup, MenuItem } from './ui/menu';
 import { useSession, signOut } from '@/lib/auth-client';
-import { useSubscriptionModal } from '@/hooks/useSubscriptionModal';
 import { useOwner } from '@/hooks/useOwner';
 import { useSetting } from '@/hooks/useSetting';
 import { useConnections } from '@/hooks/useQuery';
@@ -26,7 +25,6 @@ function expandHex(hex: string): string {
 export default function Header({ selectedConnectionId }: HeaderProps) {
   const navigate = useNavigate();
   const { user, authEnabled } = useSession();
-  const subscriptionModal = useSubscriptionModal();
   const isOwner = useOwner();
   const { branding } = useSetting();
   const { data: connections } = useConnections();
@@ -91,12 +89,6 @@ export default function Header({ selectedConnectionId }: HeaderProps) {
                   {isOwner && <span className="ml-1 text-blue-600 font-medium">(Owner)</span>}
                 </div>
               </div>
-              {isOwner && (
-                <MenuItem onClick={() => subscriptionModal.open()}>
-                  <CreditCard size={14} />
-                  Subscription
-                </MenuItem>
-              )}
               <MenuItem onClick={handleSignOut}>
                 <LogOut size={14} />
                 Sign Out

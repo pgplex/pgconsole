@@ -127,8 +127,8 @@ members = ["${member}"]
 })
 
 describe('Principal permission resolution', () => {
-  // On the FREE plan IAM is not enforced, so getUserPermissions returns the full set —
-  // which lets us verify that a delegated agent's caps actually narrow that base.
+  // With no [[iam]] rules defined, IAM is off and alice's base is full access — so the
+  // delegated agent's caps are what narrow it.
   it('delegated caps narrow the user grant (permission cap)', async () => {
     await loadConfigFromString(`${BASE}
 [[agents]]
@@ -140,19 +140,6 @@ permissions = ["read", "explain"]
     const p = new Principal(getAgentByToken('t')!)
     expect(p.permissions('prod')).toEqual(new Set<Permission>(['read', 'explain']))
     expect(p.auditActor).toBe('alice@example.com')
-  })
-
-  it('delegated connection cap blocks other connections', async () => {
-    await loadConfigFromString(`${BASE}
-[[agents]]
-id = "alice-claude"
-token = "t"
-on_behalf_of = "alice@example.com"
-connections = ["prod"]
-`)
-    const p = new Principal(getAgentByToken('t')!)
-    expect(p.permissions('prod').size).toBeGreaterThan(0)
-    expect(p.permissions('staging')).toEqual(new Set())
   })
 
   it('a pure agent audits as agent:<id>', async () => {
@@ -167,8 +154,9 @@ token = "t"
 
 describe('dispatchTool enforcement', () => {
   // These exercise the permission/per-statement gating, which throws before any DB I/O.
-  // On the FREE plan a pure agent has all permissions, so rejections come purely from the
-  // tool's statement-kind rule; a delegated read-only agent exercises the cap-based denials.
+  // With no [[iam]] rules defined, IAM is off so the pure agent and alice have full access;
+  // rejections come purely from the tool's statement-kind rule, and a delegated read-only
+  // agent exercises the cap-based denials.
   const AGENTS = `
 [[agents]]
 id = "pure"

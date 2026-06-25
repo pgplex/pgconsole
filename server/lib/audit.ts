@@ -1,7 +1,4 @@
 // Audit logging - emits JSON lines to stdout
-import { feature } from '../../src/lib/plan'
-import { getPlan } from './config'
-
 interface BaseEvent {
   type: 'audit'
   ts: string
@@ -49,7 +46,6 @@ interface DataExportEvent extends BaseEvent {
 type AuditEvent = AuthLoginEvent | AuthLogoutEvent | SQLExecuteEvent | DataExportEvent
 
 function emit(event: AuditEvent): void {
-  if (!feature('AUDIT_LOG', getPlan())) return
   console.log(JSON.stringify(event))
 }
 

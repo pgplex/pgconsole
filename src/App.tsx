@@ -12,8 +12,6 @@ import { useEditorNavigation } from './hooks/useEditorNavigation';
 import { Button } from './components/ui/button';
 import { Banner } from './components/Banner';
 import { useSetting } from './hooks/useSetting';
-import { SubscriptionModalProvider } from './components/SubscriptionModal';
-import { LicenseExpiryBanner } from './components/LicenseExpiryBanner';
 import { DemoBanner } from './components/DemoBanner';
 
 function AppLayout() {
@@ -103,44 +101,41 @@ function AppLayout() {
 
   return (
     <ToastProvider>
-      <SubscriptionModalProvider>
-        <div className="flex flex-col h-screen w-screen overflow-hidden bg-white">
-          {!isSignInRoute && demo && <DemoBanner />}
-          {!isSignInRoute && banner?.text && (
-            <Banner text={banner.text} link={banner.link} color={banner.color} />
-          )}
-          {!isSignInRoute && <LicenseExpiryBanner />}
-          {!isSignInRoute && <Header selectedConnectionId={selectedConnectionId} />}
-          <div className="flex flex-1 overflow-hidden">
-            <Routes>
-              <Route path="/" element={
-                  <SQLEditorLayout
-                    connectionId={selectedConnectionId}
-                    editorTabs={editorTabs}
-                    selectedSchema={navigation.schema}
-                    selectedObject={navigation.object}
-                    onSchemaChange={navigation.setSchema}
-                    onObjectSelect={navigation.setObject}
-                    schemas={navigation.schemas}
-                    tables={navigation.tables}
-                    isSchemasLoading={navigation.isSchemasLoading}
-                    isTablesLoading={navigation.isTablesLoading}
-                    isSchemasRefetching={navigation.isSchemasRefetching}
-                    isTablesRefetching={navigation.isTablesRefetching}
-                    schemasError={navigation.schemasError}
-                    tablesError={navigation.tablesError}
-                  />
-                } />
-              <Route path="/signin" element={
-                <div className="flex flex-1 items-center justify-center">
-                  <SignIn />
-                </div>
+      <div className="flex flex-col h-screen w-screen overflow-hidden bg-white">
+        {!isSignInRoute && demo && <DemoBanner />}
+        {!isSignInRoute && banner?.text && (
+          <Banner text={banner.text} link={banner.link} color={banner.color} />
+        )}
+        {!isSignInRoute && <Header selectedConnectionId={selectedConnectionId} />}
+        <div className="flex flex-1 overflow-hidden">
+          <Routes>
+            <Route path="/" element={
+                <SQLEditorLayout
+                  connectionId={selectedConnectionId}
+                  editorTabs={editorTabs}
+                  selectedSchema={navigation.schema}
+                  selectedObject={navigation.object}
+                  onSchemaChange={navigation.setSchema}
+                  onObjectSelect={navigation.setObject}
+                  schemas={navigation.schemas}
+                  tables={navigation.tables}
+                  isSchemasLoading={navigation.isSchemasLoading}
+                  isTablesLoading={navigation.isTablesLoading}
+                  isSchemasRefetching={navigation.isSchemasRefetching}
+                  isTablesRefetching={navigation.isTablesRefetching}
+                  schemasError={navigation.schemasError}
+                  tablesError={navigation.tablesError}
+                />
               } />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </div>
+            <Route path="/signin" element={
+              <div className="flex flex-1 items-center justify-center">
+                <SignIn />
+              </div>
+            } />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
         </div>
-      </SubscriptionModalProvider>
+      </div>
     </ToastProvider>
   );
 }

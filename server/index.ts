@@ -4,10 +4,9 @@ import cookieParser from 'cookie-parser'
 import { authRouter } from './auth-routes'
 import { connectRouter } from './connect'
 import { mcpRouter, MCP_PATH } from './mcp'
-import { loadConfig, loadConfigFromString, loadDemoConfig, isDemoMode, getBanner, getBranding, getExternalUrl, getPlan, getLicenseExpiry, getUsers, getLicenseMaxUsers, getLicenseEmail, getAgents } from './lib/config'
+import { loadConfig, loadConfigFromString, loadDemoConfig, isDemoMode, getBanner, getBranding, getExternalUrl, getAgents } from './lib/config'
 import { startDemoDatabase, stopDemoDatabase } from './lib/demo'
 import { testAllConnections } from './lib/test-connections'
-import { feature } from '../src/lib/plan'
 
 // __dirname is provided by esbuild banner
 declare const __dirname: string
@@ -40,15 +39,9 @@ app.use(connectRouter)
 
 // Public settings endpoint (no auth required)
 app.get('/api/setting', (_req, res) => {
-  const plan = getPlan()
   res.json({
-    banner: feature('BANNER', plan) ? getBanner() : undefined,
-    branding: feature('BRANDING', plan) ? getBranding() : undefined,
-    plan,
-    licenseExpiry: getLicenseExpiry(),
-    licenseEmail: getLicenseEmail(),
-    maxUsers: getLicenseMaxUsers(),
-    userCount: getUsers().length,
+    banner: getBanner(),
+    branding: getBranding(),
     demo: isDemoMode(),
   })
 })
@@ -98,21 +91,6 @@ async function start() {
     loadDemoConfig(demoPort)
     console.log(`✓ Demo database started on port ${demoPort}`)
   }
-
-  // Check license expiration
-  const licenseExpiry = getLicenseExpiry()
-  if (licenseExpiry) {
-    const now = Math.floor(Date.now() / 1000)
-    if (licenseExpiry < now) {
-      console.warn('\n⚠️  WARNING: Your license has expired. Some features may be restricted.\n   Renew at https://docs.pgconsole.com/configuration/license#purchasing-a-license\n')
-    }
-  }
-
-  // Log plan and user seat info
-  const plan = getPlan()
-  const maxUsers = getLicenseMaxUsers()
-  const userCount = getUsers().length
-  console.log(`✓ Plan: ${plan}, User seat: ${userCount}/${maxUsers}`)
 
   // Test all connections to populate cache
   try {

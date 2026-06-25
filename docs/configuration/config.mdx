@@ -27,7 +27,6 @@ pgconsole uses a TOML configuration file for all settings. Pass the config file 
 ```toml pgconsole.toml
 [general]
 external_url = "https://pgconsole.example.com"
-license = "your-license-key"
 
 [general.banner]
 text = "System maintenance scheduled for Sunday 2am UTC"
@@ -142,12 +141,10 @@ permissions = ["read"]
 | Field | Description | Required |
 |-------|-------------|----------|
 | `external_url` | Public URL of the application. See [Configure External Access](/configuration/external-access). | Required for SSO |
-| `license` | License key. See [Manage License](/configuration/license). | |
 
 ```toml pgconsole.toml
 [general]
 external_url = "https://pgconsole.example.com"
-license = "your-license-key"
 ```
 
 ### Announcement Banner
@@ -169,7 +166,7 @@ color = "#7c3aed"
 
 ## Branding
 
-Replace the pgconsole logo with your own. Requires an [Enterprise license](/configuration/license).
+Replace the pgconsole logo with your own.
 
 | Field | Description | Required |
 |-------|-------------|----------|
@@ -307,7 +304,7 @@ User entries. Repeat for multiple users. Users with a `password` can sign in wit
 |-------|-------------|----------|
 | `email` | User email or identifier | Yes |
 | `password` | Login password (omit for SSO-only users) | |
-| `owner` | Grants access to subscription management | |
+| `owner` | Marks the user as an owner (shown with an Owner badge) | |
 
 ```toml pgconsole.toml
 [[users]]
@@ -322,7 +319,7 @@ email = "alice@example.com"
 
 ### Owner Role
 
-Users with `owner = true` can view subscription status and access upgrade options. See [Manage License](/configuration/license). If no user has `owner = true`, the first user entry automatically becomes the owner.
+Users with `owner = true` are marked with an Owner badge in the UI. If no user has `owner = true`, the first user entry automatically becomes the owner.
 
 ## Groups
 
@@ -345,7 +342,7 @@ members = ["admin@example.com", "alice@example.com"]
 
 ## Access Control (IAM)
 
-Rules for controlling access to connections. See [Database Access Control](/features/database-access-control) for a full guide on permissions, patterns, and examples.
+Rules for controlling access to connections. IAM is opt-in: with no `[[iam]]` rules defined, all authenticated users have full access, and enforcement begins once you define the first rule. See [Database Access Control](/features/database-access-control) for a full guide on permissions, patterns, and examples.
 
 | Field | Description | Required |
 |-------|-------------|----------|
@@ -410,7 +407,7 @@ base_url = "https://api.groq.com/openai/v1"
 
 ## Agents
 
-Non-human principals that authenticate to the [MCP Server](/features/mcp-server) with a bearer token. An agent is **not** a [user](#users) — it can't log into the UI and doesn't count against your license seats. Repeat for multiple agents.
+Non-human principals that authenticate to the [MCP Server](/features/mcp-server) with a bearer token. An agent is **not** a [user](#users) — it can't log into the UI. Repeat for multiple agents.
 
 | Field | Description | Required |
 |-------|-------------|----------|

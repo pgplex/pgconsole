@@ -46,7 +46,7 @@ export default function AuthForm({ onSuccess }: AuthFormProps) {
   const hasBasic = providers.some((p) => p.name === 'basic');
   const oauthEntries = providers
     .filter((p) => p.name !== 'basic' && p.name in oauthProviders)
-    .map((p) => ({ key: p.name, requiredPlan: p.requiredPlan, ...oauthProviders[p.name] }));
+    .map((p) => ({ key: p.name, ...oauthProviders[p.name] }));
   const hasOAuth = oauthEntries.length > 0;
 
   if (providers.length === 0) {
@@ -55,23 +55,17 @@ export default function AuthForm({ onSuccess }: AuthFormProps) {
 
   return (
     <div className="space-y-4">
-      {oauthEntries.map(({ key, icon, label, path, requiredPlan }) => (
+      {oauthEntries.map(({ key, icon, label, path }) => (
         <div key={key}>
           <Button
-            onClick={() => { if (!requiredPlan) window.location.href = path; }}
+            onClick={() => { window.location.href = path; }}
             variant="outline"
             className="w-full"
             size="lg"
-            disabled={!!requiredPlan}
           >
             {icon}
             <span className="ml-2">{label}</span>
           </Button>
-          {requiredPlan && (
-            <p className="mt-1 text-center text-xs text-muted-foreground">
-              Requires {requiredPlan} plan — <a href="https://docs.pgconsole.com/configuration/license#purchasing-a-license" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Get a license</a>
-            </p>
-          )}
         </div>
       ))}
 

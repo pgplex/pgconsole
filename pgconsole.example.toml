@@ -6,7 +6,6 @@
 # =============================================================================
 # [general]
 # external_url = "https://pgconsole.example.com"  # Required when OAuth providers are enabled
-# license = "eyJhbGciOiJSUzI1NiJ9..."             # License key (JWT). Omit for FREE plan.
 #
 # # Banner (optional) - displays at the top of the page, cannot be dismissed
 # [general.banner]
@@ -15,9 +14,9 @@
 # color = "#7c3aed"  # Optional
 
 # =============================================================================
-# Branding (Enterprise only)
+# Branding
 # =============================================================================
-# Replace the pgconsole logo with your own. Requires an Enterprise license.
+# Replace the pgconsole logo with your own.
 #
 # [branding]
 # logo = "https://example.com/your-logo.svg"
