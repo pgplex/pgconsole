@@ -56,9 +56,9 @@ describe('audit event store', () => {
     const entries = listAuditEvents('prod', 10)
     expect(entries).toHaveLength(2)
     expect(entries[0].action).toBe('data.export')
-    expect('source' in entries[0] ? entries[0].source : '').toBe('web')
+    expect(entries[0].source).toBe('web')
     expect(entries[1].action).toBe('sql.execute')
-    expect('source' in entries[1] ? entries[1].source : '').toBe('web')
+    expect(entries[1].source).toBe('web')
   })
 
   it('records source for web and MCP SQL events', () => {
@@ -71,10 +71,10 @@ describe('audit event store', () => {
 
     const entries = listAuditEvents('prod', 10)
     expect(entries).toHaveLength(2)
-    expect('source' in entries[0] ? entries[0].source : '').toBe('mcp')
+    expect(entries[0].source).toBe('mcp')
     expect('tool' in entries[0] ? entries[0].tool : '').toBe('query')
     expect('agent' in entries[0] ? entries[0].agent : '').toBe('bot')
-    expect('source' in entries[1] ? entries[1].source : '').toBe('web')
+    expect(entries[1].source).toBe('web')
   })
 
   it('records source for system auth events', () => {
@@ -83,7 +83,7 @@ describe('audit event store', () => {
 
     const system = listSystemAuditEvents(10)
     expect(system).toHaveLength(2)
-    expect(system.every((event) => 'source' in event && event.source === 'web')).toBe(true)
+    expect(system.every((event) => event.source === 'web')).toBe(true)
   })
 
   it('applies the response limit', () => {
