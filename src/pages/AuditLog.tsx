@@ -53,9 +53,12 @@ function EntriesPanel({
   emptyLabel: string
   children: (entries: AuditLogEntry[]) => React.ReactNode
 }) {
+  // Only show the spinner while actually fetching. When the query is disabled
+  // (e.g. a non-owner), React Query leaves `isLoading` false and `data` undefined —
+  // fall through to the empty state rather than spinning forever.
   if (error) return <p className="text-red-600 text-sm">Failed to load audit log entries.</p>
-  if (isLoading || !entries) return <div className="text-gray-500 text-sm">Loading audit log…</div>
-  if (entries.length === 0) return <EmptyState label={emptyLabel} />
+  if (isLoading) return <div className="text-gray-500 text-sm">Loading audit log…</div>
+  if (!entries || entries.length === 0) return <EmptyState label={emptyLabel} />
   return <>{children(entries)}</>
 }
 
