@@ -278,7 +278,7 @@ function AuditFilterBar({
         </div>
       </div>
       <p className="text-sm text-gray-500">
-        Showing {filteredCount} of {entries.length} entries
+        Showing {filteredCount} of {entries.length} recent entries
       </p>
     </div>
   )
