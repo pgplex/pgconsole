@@ -22,6 +22,7 @@ service QueryService {
   rpc GetActiveSessions(GetActiveSessionsRequest) returns (GetActiveSessionsResponse);
   rpc TerminateSession(TerminateSessionRequest) returns (TerminateSessionResponse);
   rpc GetAuditLogEntries(GetAuditLogEntriesRequest) returns (GetAuditLogEntriesResponse);
+  rpc GetSystemAuditLogEntries(GetSystemAuditLogEntriesRequest) returns (GetSystemAuditLogEntriesResponse);
   rpc AuditExport(AuditExportRequest) returns (AuditExportResponse);
 }
 
@@ -356,6 +357,15 @@ message GetAuditLogEntriesResponse {
   repeated AuditLogEntry entries = 1;
 }
 
+// System-level (non-connection-scoped) audit events, e.g. auth.login / auth.logout.
+message GetSystemAuditLogEntriesRequest {
+  int32 limit = 1;
+}
+
+message GetSystemAuditLogEntriesResponse {
+  repeated AuditLogEntry entries = 1;
+}
+
 message AuditLogEntry {
   string timestamp = 1;
   string actor = 2;
@@ -371,6 +381,9 @@ message AuditLogEntry {
   string source = 12;
   string tool = 13;
   string agent = 14;
+  // Auth-event fields (auth.login); blank for other actions.
+  string provider = 15;
+  string ip = 16;
 }
 
 message AuditExportRequest {

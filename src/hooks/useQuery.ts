@@ -21,6 +21,7 @@ export const queryKeys = {
   functionDependencies: (connectionId: string, schema: string, name: string, args?: string) => [...queryKeys.all, 'functionDependencies', connectionId, schema, name, args] as const,
   processes: (connectionId: string) => [...queryKeys.all, 'processes', connectionId] as const,
   auditLog: (connectionId: string) => [...queryKeys.all, 'auditLog', connectionId] as const,
+  systemAuditLog: () => [...queryKeys.all, 'systemAuditLog'] as const,
 };
 
 export function invalidateSchemaQueries(qc: QueryClient, connectionId: string) {
@@ -335,6 +336,20 @@ export function useAuditLogEntries(connectionId: string, enabled = true) {
       return response.entries;
     },
     enabled: enabled && !!connectionId,
+    refetchInterval: 5000,
+  });
+}
+
+// System-level audit entries (auth.login / auth.logout). Owner-gated server-side, so
+// only enable the query for instance owners.
+export function useSystemAuditLogEntries(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.systemAuditLog(),
+    queryFn: async () => {
+      const response = await queryClient.getSystemAuditLogEntries({ limit: 100 });
+      return response.entries;
+    },
+    enabled,
     refetchInterval: 5000,
   });
 }
