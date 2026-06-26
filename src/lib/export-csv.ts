@@ -2,7 +2,7 @@ import Papa from 'papaparse'
 import type { ColumnMetadata } from '@/components/sql-editor/hooks/useEditorTabs'
 
 export function exportToCsv(
-  columns: ColumnMetadata[],
+  columns: Array<Pick<ColumnMetadata, 'name'>>,
   rows: Record<string, unknown>[],
   filename: string
 ) {

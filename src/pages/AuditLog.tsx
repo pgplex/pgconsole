@@ -1,17 +1,41 @@
+import { useMemo, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ScrollText } from 'lucide-react'
+import { Download, RotateCcw, ScrollText } from 'lucide-react'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import { useConnections, useAuditLogEntries, useSystemAuditLogEntries } from '@/hooks/useQuery'
 import { useConnectionPermissions } from '@/hooks/usePermissions'
 import { useOwner } from '@/hooks/useOwner'
+import { exportToCsv } from '@/lib/export-csv'
 import type { AuditLogEntry } from '@/gen/query_pb'
 
 interface AuditLogProps {
   connectionId: string
+}
+
+type AuditScope = 'connection' | 'system'
+
+interface AuditFilters {
+  search: string
+  action: string
+  source: string
+  status: string
+  fromDate: string
+  toDate: string
+}
+
+const DEFAULT_FILTERS: AuditFilters = {
+  search: '',
+  action: 'all',
+  source: 'all',
+  status: 'all',
+  fromDate: '',
+  toDate: '',
 }
 
 function StatusBadge({ success }: { success: boolean }) {
@@ -38,6 +62,327 @@ function EmptyState({ label }: { label: string }) {
   )
 }
 
+function uniqueValues(entries: AuditLogEntry[], pick: (entry: AuditLogEntry) => string) {
+  return Array.from(new Set(entries.map(pick).filter(Boolean))).sort()
+}
+
+function matchesDateRange(entry: AuditLogEntry, fromDate: string, toDate: string) {
+  if (!fromDate && !toDate) return true
+  const ts = new Date(entry.timestamp).getTime()
+  if (Number.isNaN(ts)) return false
+  if (fromDate) {
+    const from = new Date(`${fromDate}T00:00:00`).getTime()
+    if (ts < from) return false
+  }
+  if (toDate) {
+    const to = new Date(`${toDate}T23:59:59.999`).getTime()
+    if (ts > to) return false
+  }
+  return true
+}
+
+function entrySearchText(entry: AuditLogEntry) {
+  return [
+    entry.timestamp,
+    entry.actor,
+    entry.action,
+    entry.connection,
+    entry.database,
+    entry.sql,
+    entry.error,
+    entry.format,
+    entry.source,
+    entry.tool,
+    entry.agent,
+    entry.provider,
+    entry.ip,
+  ].join(' ').toLowerCase()
+}
+
+function filterEntries(entries: AuditLogEntry[], filters: AuditFilters) {
+  const search = filters.search.trim().toLowerCase()
+  return entries.filter((entry) => {
+    if (filters.action !== 'all' && entry.action !== filters.action) return false
+    if (filters.source !== 'all' && entry.source !== filters.source) return false
+    if (filters.status === 'success' && !entry.success) return false
+    if (filters.status === 'failed' && entry.success) return false
+    if (!matchesDateRange(entry, filters.fromDate, filters.toDate)) return false
+    if (search && !entrySearchText(entry).includes(search)) return false
+    return true
+  })
+}
+
+function csvRows(entries: AuditLogEntry[]) {
+  return entries.map((entry) => ({
+    Time: entry.timestamp,
+    Actor: entry.actor,
+    Action: entry.action,
+    Source: entry.source,
+    Status: entry.success ? 'success' : 'failed',
+    Connection: entry.connection,
+    Database: entry.database,
+    Provider: entry.provider,
+    IP: entry.ip,
+    Rows: entry.rowCount ?? '',
+    'Duration ms': entry.durationMs ?? '',
+    SQL: entry.sql,
+    Error: entry.error,
+    Format: entry.format,
+    Tool: entry.tool,
+    Agent: entry.agent,
+  }))
+}
+
+function exportAuditEntries(entries: AuditLogEntry[], scope: AuditScope) {
+  const columns = [
+    'Time',
+    'Actor',
+    'Action',
+    'Source',
+    'Status',
+    'Connection',
+    'Database',
+    'Provider',
+    'IP',
+    'Rows',
+    'Duration ms',
+    'SQL',
+    'Error',
+    'Format',
+    'Tool',
+    'Agent',
+  ].map((name) => ({ name }))
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+  exportToCsv(columns, csvRows(entries), `audit-log-${scope}-${timestamp}.csv`)
+}
+
+function AuditFilterBar({
+  scope,
+  entries,
+  filters,
+  onFiltersChange,
+  filteredCount,
+  onExport,
+}: {
+  scope: AuditScope
+  entries: AuditLogEntry[]
+  filters: AuditFilters
+  onFiltersChange: (filters: AuditFilters) => void
+  filteredCount: number
+  onExport: () => void
+}) {
+  const actions = uniqueValues(entries, (entry) => entry.action)
+  const sources = uniqueValues(entries, (entry) => entry.source)
+  const hasFilters = Object.entries(filters).some(([key, value]) => value !== DEFAULT_FILTERS[key as keyof AuditFilters])
+  const searchId = `audit-${scope}-search`
+  const fromId = `audit-${scope}-from`
+  const toId = `audit-${scope}-to`
+
+  return (
+    <div className="mb-4 space-y-3">
+      <div className="grid gap-3 md:grid-cols-[minmax(220px,1fr)_160px_140px_140px_140px_140px_auto_auto]">
+        <div className="space-y-1.5">
+          <Label htmlFor={searchId}>Search</Label>
+          <Input
+            id={searchId}
+            type="search"
+            value={filters.search}
+            onChange={(event) => onFiltersChange({ ...filters, search: event.target.value })}
+            placeholder="Actor, SQL, error, IP..."
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Action</Label>
+          <Select
+            value={filters.action}
+            onValueChange={(action) => onFiltersChange({ ...filters, action: action ?? 'all' })}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All actions</SelectItem>
+              {actions.map((action) => (
+                <SelectItem key={action} value={action}>{action}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label>Source</Label>
+          <Select
+            value={filters.source}
+            onValueChange={(source) => onFiltersChange({ ...filters, source: source ?? 'all' })}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All sources</SelectItem>
+              {sources.map((source) => (
+                <SelectItem key={source} value={source}>{source}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label>Status</Label>
+          <Select
+            value={filters.status}
+            onValueChange={(status) => onFiltersChange({ ...filters, status: status ?? 'all' })}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              <SelectItem value="success">Success</SelectItem>
+              <SelectItem value="failed">Failed</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor={fromId}>From</Label>
+          <Input
+            id={fromId}
+            type="date"
+            value={filters.fromDate}
+            onChange={(event) => onFiltersChange({ ...filters, fromDate: event.target.value })}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor={toId}>To</Label>
+          <Input
+            id={toId}
+            type="date"
+            value={filters.toDate}
+            onChange={(event) => onFiltersChange({ ...filters, toDate: event.target.value })}
+          />
+        </div>
+        <div className="flex items-end">
+          <Button
+            variant="outline"
+            onClick={() => onFiltersChange(DEFAULT_FILTERS)}
+            disabled={!hasFilters}
+            aria-label="Reset audit filters"
+          >
+            <RotateCcw />
+            Reset
+          </Button>
+        </div>
+        <div className="flex items-end">
+          <Button onClick={onExport} disabled={filteredCount === 0}>
+            <Download />
+            Export CSV
+          </Button>
+        </div>
+      </div>
+      <p className="text-sm text-gray-500">
+        Showing {filteredCount} of {entries.length} entries
+      </p>
+    </div>
+  )
+}
+
+function AuditEntriesView({ entries, scope }: { entries: AuditLogEntry[]; scope: AuditScope }) {
+  const [filters, setFilters] = useState(DEFAULT_FILTERS)
+  const filteredEntries = useMemo(() => filterEntries(entries, filters), [entries, filters])
+
+  return (
+    <>
+      <AuditFilterBar
+        scope={scope}
+        entries={entries}
+        filters={filters}
+        onFiltersChange={setFilters}
+        filteredCount={filteredEntries.length}
+        onExport={() => exportAuditEntries(filteredEntries, scope)}
+      />
+      {filteredEntries.length === 0 ? (
+        <EmptyState label="No audit log entries match these filters." />
+      ) : scope === 'connection' ? (
+        <ConnectionAuditTable entries={filteredEntries} />
+      ) : (
+        <SystemAuditTable entries={filteredEntries} />
+      )}
+    </>
+  )
+}
+
+function ConnectionAuditTable({ entries }: { entries: AuditLogEntry[] }) {
+  return (
+    <div className="rounded-lg border border-gray-200">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Time</TableHead>
+            <TableHead>Actor</TableHead>
+            <TableHead>Action</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Rows</TableHead>
+            <TableHead>Duration</TableHead>
+            <TableHead>SQL</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {entries.map((entry, idx) => (
+            <TableRow key={`${entry.timestamp}-${entry.action}-${entry.actor}-${idx}`}>
+              <TableCell className="text-gray-600">{new Date(entry.timestamp).toLocaleString()}</TableCell>
+              <TableCell>{entry.actor}</TableCell>
+              <TableCell><ActionCell action={entry.action} source={entry.source} /></TableCell>
+              <TableCell><StatusBadge success={entry.success} /></TableCell>
+              <TableCell>{entry.rowCount !== undefined ? entry.rowCount : '—'}</TableCell>
+              <TableCell>{entry.durationMs !== undefined ? `${entry.durationMs}ms` : '—'}</TableCell>
+              <TableCell className="max-w-xl">
+                <div className="truncate font-mono text-xs" title={entry.error || entry.sql}>
+                  {entry.error || entry.sql || '—'}
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  )
+}
+
+function SystemAuditTable({ entries }: { entries: AuditLogEntry[] }) {
+  return (
+    <div className="rounded-lg border border-gray-200">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Time</TableHead>
+            <TableHead>Actor</TableHead>
+            <TableHead>Action</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Provider</TableHead>
+            <TableHead>IP</TableHead>
+            <TableHead>Detail</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {entries.map((entry, idx) => (
+            <TableRow key={`${entry.timestamp}-${entry.action}-${entry.actor}-${idx}`}>
+              <TableCell className="text-gray-600">{new Date(entry.timestamp).toLocaleString()}</TableCell>
+              <TableCell>{entry.actor}</TableCell>
+              <TableCell><ActionCell action={entry.action} source={entry.source} /></TableCell>
+              <TableCell><StatusBadge success={entry.success} /></TableCell>
+              <TableCell>{entry.provider || '—'}</TableCell>
+              <TableCell className="font-mono text-xs">{entry.ip || '—'}</TableCell>
+              <TableCell className="max-w-xl">
+                <div className="truncate text-xs text-gray-600" title={entry.error}>
+                  {entry.error || '—'}
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  )
+}
+
 // Shared loading / error / empty handling for a tab's entries; renders the table only
 // once entries have loaded and are non-empty.
 function EntriesPanel({
@@ -51,7 +396,7 @@ function EntriesPanel({
   isLoading: boolean
   error: unknown
   emptyLabel: string
-  children: (entries: AuditLogEntry[]) => React.ReactNode
+  children: (entries: AuditLogEntry[]) => ReactNode
 }) {
   // Only show the spinner while actually fetching. When the query is disabled
   // (e.g. a non-owner), React Query leaves `isLoading` false and `data` undefined —
@@ -92,40 +437,7 @@ export default function AuditLog({ connectionId }: AuditLogProps) {
       error={connQuery.error}
       emptyLabel="No audit log entries yet."
     >
-      {(entries) => (
-        <div className="rounded-lg border border-gray-200">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Time</TableHead>
-                <TableHead>Actor</TableHead>
-                <TableHead>Action</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Rows</TableHead>
-                <TableHead>Duration</TableHead>
-                <TableHead>SQL</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {entries.map((entry, idx) => (
-                <TableRow key={`${entry.timestamp}-${entry.action}-${entry.actor}-${idx}`}>
-                  <TableCell className="text-gray-600">{new Date(entry.timestamp).toLocaleString()}</TableCell>
-                  <TableCell>{entry.actor}</TableCell>
-                  <TableCell><ActionCell action={entry.action} source={entry.source} /></TableCell>
-                  <TableCell><StatusBadge success={entry.success} /></TableCell>
-                  <TableCell>{entry.rowCount !== undefined ? entry.rowCount : '—'}</TableCell>
-                  <TableCell>{entry.durationMs !== undefined ? `${entry.durationMs}ms` : '—'}</TableCell>
-                  <TableCell className="max-w-xl">
-                    <div className="truncate font-mono text-xs" title={entry.error || entry.sql}>
-                      {entry.error || entry.sql || '—'}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+      {(entries) => <AuditEntriesView entries={entries} scope="connection" />}
     </EntriesPanel>
   )
 
@@ -137,40 +449,7 @@ export default function AuditLog({ connectionId }: AuditLogProps) {
       error={sysQuery.error}
       emptyLabel="No system audit log entries yet."
     >
-      {(entries) => (
-        <div className="rounded-lg border border-gray-200">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Time</TableHead>
-                <TableHead>Actor</TableHead>
-                <TableHead>Action</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Provider</TableHead>
-                <TableHead>IP</TableHead>
-                <TableHead>Detail</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {entries.map((entry, idx) => (
-                <TableRow key={`${entry.timestamp}-${entry.action}-${entry.actor}-${idx}`}>
-                  <TableCell className="text-gray-600">{new Date(entry.timestamp).toLocaleString()}</TableCell>
-                  <TableCell>{entry.actor}</TableCell>
-                  <TableCell><ActionCell action={entry.action} source={entry.source} /></TableCell>
-                  <TableCell><StatusBadge success={entry.success} /></TableCell>
-                  <TableCell>{entry.provider || '—'}</TableCell>
-                  <TableCell className="font-mono text-xs">{entry.ip || '—'}</TableCell>
-                  <TableCell className="max-w-xl">
-                    <div className="truncate text-xs text-gray-600" title={entry.error}>
-                      {entry.error || '—'}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+      {(entries) => <AuditEntriesView entries={entries} scope="system" />}
     </EntriesPanel>
   )
 

@@ -328,11 +328,13 @@ export function useTerminateProcess() {
   });
 }
 
+const AUDIT_LOG_LIMIT = 1000;
+
 export function useAuditLogEntries(connectionId: string, enabled = true) {
   return useQuery({
     queryKey: queryKeys.auditLog(connectionId),
     queryFn: async () => {
-      const response = await queryClient.getAuditLogEntries({ connectionId, limit: 100 });
+      const response = await queryClient.getAuditLogEntries({ connectionId, limit: AUDIT_LOG_LIMIT });
       return response.entries;
     },
     enabled: enabled && !!connectionId,
@@ -346,7 +348,7 @@ export function useSystemAuditLogEntries(enabled = true) {
   return useQuery({
     queryKey: queryKeys.systemAuditLog(),
     queryFn: async () => {
-      const response = await queryClient.getSystemAuditLogEntries({ limit: 100 });
+      const response = await queryClient.getSystemAuditLogEntries({ limit: AUDIT_LOG_LIMIT });
       return response.entries;
     },
     enabled,
