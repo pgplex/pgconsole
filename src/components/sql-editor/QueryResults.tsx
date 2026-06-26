@@ -7,7 +7,8 @@ import { SearchInput } from '../ui/search-input'
 import { Button } from '../ui/button'
 import { Tooltip, TooltipTrigger, TooltipContent } from '../ui/tooltip'
 import type { QueryResult, ResultTab } from './hooks/useEditorTabs'
-import { exportToCsv } from '@/lib/export-csv'
+import { EXPORT_FORMATS, exportRows, type ExportFormat } from '@/lib/export-csv'
+import { Menu, MenuTrigger, MenuPopup, MenuItem } from '../ui/menu'
 import { queryClient } from '@/lib/connect-client'
 import { RowDetailPanel } from './RowDetailPanel'
 import { JsonExpandModal } from './JsonExpandModal'
@@ -1385,21 +1386,23 @@ export function QueryResults({
     await navigator.clipboard.writeText(lines.join('\n'))
   }, [activeResult, displayRows])
 
-  const handleExport = useCallback(() => {
+  const handleExport = useCallback((format: ExportFormat) => {
     if (!activeResult) return
 
     const now = new Date()
     const timestamp = now.toISOString().slice(0, 19).replace(/[-:T]/g, (m) => (m === 'T' ? '-' : ''))
-    const filename = `export-${timestamp}.csv`
+    const exportFormat = EXPORT_FORMATS.find((item) => item.value === format)
+    if (!exportFormat) return
+    const filename = `export-${timestamp}.${exportFormat.extension}`
 
     const rows = displayRows.filter(r => r.status === 'normal').map(r => r.data)
-    exportToCsv(activeResult.result.columns, rows, filename)
+    exportRows(activeResult.result.columns, rows, filename, format)
 
     queryClient.auditExport({
       connectionId,
       sql: activeResult.sql || '',
       rowCount: rows.length,
-      format: 'csv',
+      format,
     }).catch(() => {})
   }, [activeResult, displayRows, connectionId])
 
@@ -1509,15 +1512,27 @@ export function QueryResults({
             <Clipboard className="w-4 h-4" />
           </Button>
           {hasExport && (
-            <Button
-              variant="ghost"
-              size="xs"
-              onClick={handleExport}
-              disabled={!activeResult || !!activeResult.result.error || activeResult.result.rows.length === 0}
-              title="Export to CSV"
-            >
-              <Download className="w-4 h-4 mr-1" />
-            </Button>
+            <Menu>
+              <MenuTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="xs"
+                    disabled={!activeResult || !!activeResult.result.error || activeResult.result.rows.length === 0}
+                    title="Export results"
+                  >
+                    <Download className="w-4 h-4" />
+                  </Button>
+                }
+              />
+              <MenuPopup align="end" side="bottom">
+                {EXPORT_FORMATS.map((format) => (
+                  <MenuItem key={format.value} onClick={() => handleExport(format.value)}>
+                    {format.label}
+                  </MenuItem>
+                ))}
+              </MenuPopup>
+            </Menu>
           )}
         </div>
       </div>

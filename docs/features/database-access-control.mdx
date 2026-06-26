@@ -45,7 +45,7 @@ Independent permissions control what users can do:
 | `admin` | Role/database management, `pg_terminate_backend` | Terminate sessions, cancel other users' queries |
 | `explain` | `EXPLAIN` queries | Explain button in editor toolbar and context menu |
 | `execute` | `CALL` stored procedures | Procedure execution |
-| `export` | Export from results | Export button |
+| `export` | Export from results | Export menu |
 
 A single SQL statement can require multiple permissions. For example, `SELECT pg_terminate_backend(123)` requires both `read` (for the SELECT) and `admin` (for the function call).
 
