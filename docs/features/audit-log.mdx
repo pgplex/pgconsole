@@ -2,11 +2,14 @@
 title: Audit Log
 ---
 
-pgconsole emits audit logs as JSON lines to stdout, allowing you to capture and process them with your existing log infrastructure. It also keeps connection-scoped audit entries in memory so admins can inspect recent activity from the `/audit-log` page.
+pgconsole emits audit logs as JSON lines to stdout, allowing you to capture and process them with your existing log infrastructure. It also keeps audit entries in memory so they can be inspected from the `/audit-log` page.
 
 ## In-App Audit Log
 
-The `/audit-log` page shows SQL execution and data export entries for the selected connection, newest first. Viewing entries requires `admin` permission on that connection.
+The `/audit-log` page has two tabs:
+
+- **Connection** — SQL execution and data export entries for the selected connection, newest first. Requires `admin` permission on that connection.
+- **System** — instance-level events that aren't tied to a connection (`auth.login` / `auth.logout`), including the auth provider and source IP. Only visible to an instance **owner**, since these events span all users.
 
 Entries are stored in memory only. They are lost when the server restarts. By default, pgconsole retains entries indefinitely while the process is running, so memory usage grows with audit volume. For high-traffic deployments, set `retention_days` to prune older entries:
 

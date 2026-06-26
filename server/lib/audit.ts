@@ -176,6 +176,20 @@ export function listAuditEvents(connectionId: string, limit: number): AuditEvent
   return entries
 }
 
+// System-level audit events — those not scoped to a connection (auth.login / auth.logout),
+// surfaced in the instance-owner-only "System" tab. Newest first, bounded by limit.
+export function listSystemAuditEvents(limit: number): AuditEvent[] {
+  pruneRetainedEvents('all')
+  const entries: AuditEvent[] = []
+  for (let i = auditEvents.length - 1; i >= 0 && entries.length < limit; i--) {
+    const event = auditEvents[i]
+    if (!('connection' in event)) {
+      entries.push(event)
+    }
+  }
+  return entries
+}
+
 export function clearAuditEventsForTest(): void {
   auditEvents.length = 0
 }

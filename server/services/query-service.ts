@@ -1,17 +1,40 @@
 import { ConnectError, Code } from "@connectrpc/connect";
 import type { ServiceImpl } from "@connectrpc/connect";
 import { QueryService } from "../../src/gen/query_connect";
-import { getConnectionById } from "../lib/config";
+import { getConnectionById, isOwner } from "../lib/config";
 import { createClient, formatAppName, buildConnectionDetails, type ConnectionDetails } from "../lib/db";
 import type postgres from "postgres";
 import { getUserFromContext } from "../connect";
 import { hasPermission, requirePermission, requirePermissions, requireAnyPermission } from "../lib/iam";
 import { detectRequiredPermissions } from "../lib/sql-permissions";
 import { buildExecutableSql, formatExecutionError } from "../lib/execute-sql";
-import { auditSQL, auditExport, listAuditEvents } from "../lib/audit";
+import { auditSQL, auditExport, listAuditEvents, listSystemAuditEvents, type AuditEvent } from "../lib/audit";
 
 // Track active queries by queryId -> { pid, connectionDetails, email }
 const activeQueries = new Map<string, { pid: number; details: ConnectionDetails; email: string }>();
+
+// Map an in-memory audit event to the wire AuditLogEntry. Fields absent on a given
+// event kind map to undefined (numbers, so presence is preserved) or '' (strings).
+function toAuditLogEntry(event: AuditEvent) {
+  return {
+    timestamp: event.ts,
+    actor: event.actor,
+    action: event.action,
+    connection: 'connection' in event ? event.connection : '',
+    database: 'database' in event ? event.database : '',
+    sql: 'sql' in event ? event.sql : '',
+    success: 'success' in event ? event.success : true,
+    durationMs: 'duration_ms' in event ? event.duration_ms : undefined,
+    rowCount: 'row_count' in event && event.row_count !== undefined ? event.row_count : undefined,
+    error: 'error' in event && event.error ? event.error : '',
+    format: 'format' in event ? event.format : '',
+    source: 'source' in event && event.source ? event.source : '',
+    tool: 'tool' in event && event.tool ? event.tool : '',
+    agent: 'agent' in event && event.agent ? event.agent : '',
+    provider: 'provider' in event ? event.provider : '',
+    ip: 'ip' in event ? event.ip : '',
+  };
+}
 
 function getConnectionDetails(connectionId: string): ConnectionDetails {
   const details = buildConnectionDetails(connectionId);
@@ -1201,22 +1224,25 @@ export const queryServiceHandlers: ServiceImpl<typeof QueryService> = {
     getConnectionDetails(req.connectionId);
 
     const limit = req.limit > 0 ? Math.min(req.limit, 500) : 100;
-    const entries = listAuditEvents(req.connectionId, limit).map((event) => ({
-      timestamp: event.ts,
-      actor: event.actor,
-      action: event.action,
-      connection: 'connection' in event ? event.connection : '',
-      database: 'database' in event ? event.database : '',
-      sql: 'sql' in event ? event.sql : '',
-      success: 'success' in event ? event.success : true,
-      durationMs: 'duration_ms' in event ? event.duration_ms : undefined,
-      rowCount: 'row_count' in event && event.row_count !== undefined ? event.row_count : undefined,
-      error: 'error' in event && event.error ? event.error : '',
-      format: 'format' in event ? event.format : '',
-      source: 'source' in event && event.source ? event.source : '',
-      tool: 'tool' in event && event.tool ? event.tool : '',
-      agent: 'agent' in event && event.agent ? event.agent : '',
-    }));
+    const entries = listAuditEvents(req.connectionId, limit).map(toAuditLogEntry);
+
+    return { entries };
+  },
+
+  async getSystemAuditLogEntries(req, context) {
+    // System-level audit (auth.login/logout) is instance-wide, not connection-scoped,
+    // so it is gated on the instance owner rather than per-connection admin — this avoids
+    // leaking everyone's login/IP activity to an admin of a single connection.
+    const user = await getUserFromContext(context.values);
+    if (!user) {
+      throw new ConnectError("Authentication required", Code.Unauthenticated);
+    }
+    if (!isOwner(user.email)) {
+      throw new ConnectError("Permission denied: viewing the system audit log requires instance owner", Code.PermissionDenied);
+    }
+
+    const limit = req.limit > 0 ? Math.min(req.limit, 500) : 100;
+    const entries = listSystemAuditEvents(limit).map(toAuditLogEntry);
 
     return { entries };
   },

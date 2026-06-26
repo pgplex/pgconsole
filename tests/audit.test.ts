@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { loadConfigFromString, getAuditRetentionDays } from '../server/lib/config'
-import { auditSQL, auditExport, clearAuditEventsForTest, listAuditEvents } from '../server/lib/audit'
+import { auditSQL, auditExport, auditLogin, auditLogout, clearAuditEventsForTest, listAuditEvents, listSystemAuditEvents } from '../server/lib/audit'
 
 const BASE = `
 [[connections]]
@@ -66,6 +66,30 @@ describe('audit event store', () => {
     const entries = listAuditEvents('prod', 1)
     expect(entries).toHaveLength(1)
     expect('sql' in entries[0] ? entries[0].sql : '').toBe('SELECT 2')
+  })
+
+  it('separates system (auth) events from connection-scoped events', () => {
+    auditLogin('alice@example.com', 'password', '10.0.0.1', true)
+    auditSQL('alice@example.com', 'prod', 'postgres', 'SELECT 1', true, 1, 1)
+    auditLogout('alice@example.com')
+
+    // System tab: only the non-connection auth events, newest-first.
+    const system = listSystemAuditEvents(10)
+    expect(system.map((e) => e.action)).toEqual(['auth.logout', 'auth.login'])
+
+    // Connection tab is unaffected — still only connection-scoped events.
+    const conn = listAuditEvents('prod', 10)
+    expect(conn).toHaveLength(1)
+    expect(conn[0].action).toBe('sql.execute')
+  })
+
+  it('applies the response limit to system events', () => {
+    auditLogin('alice@example.com', 'password', '10.0.0.1', true)
+    auditLogin('bob@example.com', 'password', '10.0.0.2', false, 'bad password')
+
+    const system = listSystemAuditEvents(1)
+    expect(system).toHaveLength(1)
+    expect(system[0].actor).toBe('bob@example.com')
   })
 
   it('prunes events older than retention_days on insert', async () => {
