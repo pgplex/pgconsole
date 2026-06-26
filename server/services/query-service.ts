@@ -9,6 +9,7 @@ import { hasPermission, requirePermission, requirePermissions, requireAnyPermiss
 import { detectRequiredPermissions } from "../lib/sql-permissions";
 import { buildExecutableSql, formatExecutionError } from "../lib/execute-sql";
 import { auditSQL, auditExport, listAuditEvents, listSystemAuditEvents, type AuditEvent } from "../lib/audit";
+import { AUDIT_LOG_FETCH_LIMIT, AUDIT_LOG_DEFAULT_LIMIT } from "../../src/lib/constants";
 
 // Track active queries by queryId -> { pid, connectionDetails, email }
 const activeQueries = new Map<string, { pid: number; details: ConnectionDetails; email: string }>();
@@ -1223,7 +1224,7 @@ export const queryServiceHandlers: ServiceImpl<typeof QueryService> = {
     requirePermission(user, req.connectionId, 'admin', 'view audit log');
     getConnectionDetails(req.connectionId);
 
-    const limit = req.limit > 0 ? Math.min(req.limit, 1000) : 100;
+    const limit = req.limit > 0 ? Math.min(req.limit, AUDIT_LOG_FETCH_LIMIT) : AUDIT_LOG_DEFAULT_LIMIT;
     const entries = listAuditEvents(req.connectionId, limit).map(toAuditLogEntry);
 
     return { entries };
@@ -1241,7 +1242,7 @@ export const queryServiceHandlers: ServiceImpl<typeof QueryService> = {
       throw new ConnectError("Permission denied: viewing the system audit log requires instance owner", Code.PermissionDenied);
     }
 
-    const limit = req.limit > 0 ? Math.min(req.limit, 1000) : 100;
+    const limit = req.limit > 0 ? Math.min(req.limit, AUDIT_LOG_FETCH_LIMIT) : AUDIT_LOG_DEFAULT_LIMIT;
     const entries = listSystemAuditEvents(limit).map(toAuditLogEntry);
 
     return { entries };
