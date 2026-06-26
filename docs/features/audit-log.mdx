@@ -61,7 +61,8 @@ All audit events are JSON objects with a common structure:
   "actor": "alice@example.com",
   "provider": "google",
   "ip": "192.168.1.100",
-  "success": true
+  "success": true,
+  "source": "web"
 }
 ```
 
@@ -71,6 +72,7 @@ All audit events are JSON objects with a common structure:
 | `ip` | Client IP address |
 | `success` | Whether login succeeded |
 | `error` | Error message (if failed) |
+| `source` | Event origin: currently `"web"` |
 
 ### auth.logout
 
@@ -79,9 +81,15 @@ All audit events are JSON objects with a common structure:
   "type": "audit",
   "ts": "2024-01-15T10:35:00.000Z",
   "action": "auth.logout",
-  "actor": "alice@example.com"
+  "actor": "alice@example.com",
+  "source": "web"
 }
 ```
+
+| Field | Description |
+|-------|-------------|
+| `actor` | User who logged out |
+| `source` | Event origin: currently `"web"` |
 
 ### sql.execute
 
@@ -96,7 +104,8 @@ All audit events are JSON objects with a common structure:
   "sql": "SELECT * FROM users WHERE active = true",
   "success": true,
   "duration_ms": 45,
-  "row_count": 150
+  "row_count": 150,
+  "source": "web"
 }
 ```
 
@@ -109,7 +118,7 @@ All audit events are JSON objects with a common structure:
 | `duration_ms` | Execution time in milliseconds |
 | `row_count` | Number of rows returned (optional) |
 | `error` | Error message (if failed) |
-| `source` | `"mcp"` when the query came from the [MCP Server](/features/mcp-server) (omitted otherwise) |
+| `source` | Query origin: `"web"` for the web app, `"mcp"` for the [MCP Server](/features/mcp-server) |
 | `tool` | MCP tool name that ran the query (only when `source` is `"mcp"`) |
 | `agent` | The [agent](/configuration/config#agents) id that ran the query (only when `source` is `"mcp"`). For a delegated agent the `actor` is the user it acts for; for a pure agent the `actor` is `agent:<id>` |
 
@@ -125,7 +134,8 @@ All audit events are JSON objects with a common structure:
   "database": "postgres",
   "sql": "SELECT * FROM users WHERE active = true",
   "row_count": 150,
-  "format": "csv"
+  "format": "csv",
+  "source": "web"
 }
 ```
 
@@ -136,6 +146,7 @@ All audit events are JSON objects with a common structure:
 | `sql` | SQL query that produced the exported data |
 | `row_count` | Number of rows exported |
 | `format` | Export format (`csv`) |
+| `source` | Export origin: currently `"web"` |
 
 ## Capturing Logs
 

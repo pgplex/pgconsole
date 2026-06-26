@@ -56,7 +56,34 @@ describe('audit event store', () => {
     const entries = listAuditEvents('prod', 10)
     expect(entries).toHaveLength(2)
     expect(entries[0].action).toBe('data.export')
+    expect(entries[0].source).toBe('web')
     expect(entries[1].action).toBe('sql.execute')
+    expect(entries[1].source).toBe('web')
+  })
+
+  it('records source for web and MCP SQL events', () => {
+    auditSQL('alice@example.com', 'prod', 'postgres', 'SELECT 1', true, 1, 1)
+    auditSQL('agent:bot', 'prod', 'postgres', 'SELECT 2', true, 1, 1, undefined, {
+      source: 'mcp',
+      tool: 'query',
+      agent: 'bot',
+    })
+
+    const entries = listAuditEvents('prod', 10)
+    expect(entries).toHaveLength(2)
+    expect(entries[0].source).toBe('mcp')
+    expect('tool' in entries[0] ? entries[0].tool : '').toBe('query')
+    expect('agent' in entries[0] ? entries[0].agent : '').toBe('bot')
+    expect(entries[1].source).toBe('web')
+  })
+
+  it('records source for system auth events', () => {
+    auditLogin('alice@example.com', 'password', '10.0.0.1', true)
+    auditLogout('alice@example.com')
+
+    const system = listSystemAuditEvents(10)
+    expect(system).toHaveLength(2)
+    expect(system.every((event) => event.source === 'web')).toBe(true)
   })
 
   it('applies the response limit', () => {
