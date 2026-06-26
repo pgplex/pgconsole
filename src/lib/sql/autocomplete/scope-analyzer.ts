@@ -58,11 +58,11 @@ export function analyzeScope(
   }
 
   // Extract tables and aliases from tokens
-  const tablesFromTokens = extractTablesFromTokens(tokenized, sql)
+  const tablesFromTokens = extractTablesFromTokens(tokenized)
   scopeInfo.availableTables = tablesFromTokens
 
   // Extract CTEs if present
-  const ctesFromTokens = extractCTEsFromTokens(tokenized, sql)
+  const ctesFromTokens = extractCTEsFromTokens(tokenized)
   scopeInfo.ctes = ctesFromTokens
 
   // Add CTE names as virtual tables
@@ -80,7 +80,7 @@ export function analyzeScope(
   if (pgQueryResult.valid) {
     scopeInfo.isPgQueryValid = true
     // Merge pg_query results with token-based results
-    mergePgQueryResults(scopeInfo, pgQueryResult, schema)
+    mergePgQueryResults(scopeInfo, pgQueryResult)
   }
 
   // Resolve columns for tables in scope
@@ -92,7 +92,7 @@ export function analyzeScope(
 /**
  * Extract table references and aliases from tokens.
  */
-function extractTablesFromTokens(tokenized: TokenizedSQL, _sql: string): TableRef[] {
+function extractTablesFromTokens(tokenized: TokenizedSQL): TableRef[] {
   const tables: TableRef[] = []
   const tokens = tokenized.tokens
 
@@ -223,7 +223,7 @@ function isInFromClause(tokens: Token[], index: number): boolean {
 /**
  * Extract CTEs from WITH clause.
  */
-function extractCTEsFromTokens(tokenized: TokenizedSQL, _sql: string): CTERef[] {
+function extractCTEsFromTokens(tokenized: TokenizedSQL): CTERef[] {
   const ctes: CTERef[] = []
   const tokens = tokenized.tokens
 
@@ -387,8 +387,7 @@ function extractFromPgQueryAST(
  */
 function mergePgQueryResults(
   scopeInfo: ScopeInfo,
-  pgQueryResult: PgQueryResult,
-  _schema: SchemaInfo
+  pgQueryResult: PgQueryResult
 ): void {
   // Add any tables from pg_query not found in token analysis
   for (const pgTable of pgQueryResult.tables) {

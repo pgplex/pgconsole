@@ -1,5 +1,4 @@
-import { Home, Settings } from 'lucide-react'
-import type { ComponentType } from 'react'
+import { Home, Settings, type LucideIcon } from 'lucide-react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Button } from './ui/button'
 import { useMemo } from 'react'
@@ -41,12 +40,12 @@ export default function Gutter({ activeItem, onItemClick }: GutterProps) {
     }
   }
 
-  const gutterIcons: { id: GutterItem; Icon: ComponentType<{ size?: number }>; label: string }[] = [
+  const gutterIcons: { id: GutterItem; Icon: LucideIcon; label: string }[] = [
     { id: 'home', Icon: Home, label: 'Organization Home' },
     { id: 'settings', Icon: Settings, label: 'Organization Settings' },
   ]
 
-  const renderButton = ({ id, Icon, label }: { id: GutterItem; Icon: ComponentType<any>; label: string }) => {
+  const renderButton = ({ id, Icon, label }: { id: GutterItem; Icon: LucideIcon; label: string }) => {
     const isActive = activeItem === id
     return (
       <Button

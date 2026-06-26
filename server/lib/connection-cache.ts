@@ -1,3 +1,5 @@
+import type { createClient } from './db'
+
 // In-memory cache for connection runtime information
 export interface ConnectionInfo {
   version: string // PostgreSQL major version (e.g., "16")
@@ -50,7 +52,7 @@ export function clearConnectionCache(connectionId?: string): void {
  * @returns PostgreSQL major version (e.g., "16")
  * @throws Error if version cannot be extracted
  */
-export async function testAndCacheConnection(client: any, connectionId: string): Promise<string> {
+export async function testAndCacheConnection(client: ReturnType<typeof createClient>, connectionId: string): Promise<string> {
   // Test connectivity
   await client`SELECT 1`
 

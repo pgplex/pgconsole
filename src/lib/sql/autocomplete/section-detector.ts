@@ -870,7 +870,7 @@ function calculateSubqueryDepth(tokens: Token[]): number {
 /**
  * Check if cursor is at a position expecting a table alias.
  */
-export function isExpectingAlias(tokenized: TokenizedSQL, _cursorPosition: number): boolean {
+export function isExpectingAlias(tokenized: TokenizedSQL): boolean {
   const tokens = getTokensUpToCursor(tokenized, true)
   if (tokens.length < 2) return false
 

@@ -240,7 +240,7 @@ export function generateCandidates(
       return generateSelectColumnCandidates(context, scope, schema)
 
     case 'FROM_TABLE':
-      return generateFromTableCandidates(scope, schema, context)
+      return generateFromTableCandidates(scope, schema)
 
     case 'JOIN_TABLE':
     case 'INSERT_TABLE':
@@ -453,7 +453,7 @@ function generateColumnCandidatesForTable(
  * Generate candidates for FROM clause.
  * Includes tables and clause transition keywords (WHERE, JOIN, etc.)
  */
-function generateFromTableCandidates(scope: ScopeInfo, schema: SchemaInfo, _context: CursorContext): Candidate[] {
+function generateFromTableCandidates(scope: ScopeInfo, schema: SchemaInfo): Candidate[] {
   const candidates: Candidate[] = []
 
   // 1. Tables (primary suggestions)
@@ -1055,4 +1055,3 @@ function generateDefaultCandidates(scope: ScopeInfo, schema: SchemaInfo): Candid
 
   return candidates
 }
-

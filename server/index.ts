@@ -13,7 +13,6 @@ declare const __dirname: string
 // Injected by esbuild define
 declare const __APP_VERSION__: string
 declare const __DEV__: boolean
-declare const __GIT_COMMIT__: string
 const app = express()
 
 // Parse command line arguments

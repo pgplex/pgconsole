@@ -95,7 +95,7 @@ async function getColumnMetadata(
   }
 
   // Get table info, primary key columns, column nullability, and columns with defaults
-  let tableInfo = new Map<number, { schema: string; table: string; pkColumns: Set<string>; notNullColumns: Set<string>; defaultColumns: Set<string> }>();
+  const tableInfo = new Map<number, { schema: string; table: string; pkColumns: Set<string>; notNullColumns: Set<string>; defaultColumns: Set<string> }>();
   if (tableOids.length > 0) {
     const tableRows = await client`
       SELECT
@@ -1072,8 +1072,6 @@ export const queryServiceHandlers: ServiceImpl<typeof QueryService> = {
       // Check which objects are referenced in the function definition
       // Look for patterns like: schema.name, "schema"."name", or just name (for tables in search_path)
       const deps: Array<{ schema: string; name: string; type: string; arguments: string }> = [];
-      const definitionLower = definition.toLowerCase();
-
       for (const obj of objectsResult) {
         const schema = obj.schema as string;
         const name = obj.name as string;

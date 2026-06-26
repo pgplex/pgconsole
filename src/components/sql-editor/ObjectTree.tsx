@@ -293,7 +293,7 @@ function ObjectItem({
 }
 
 export function ObjectTree(props: ObjectTreeProps) {
-  const { tables, views, materializedViews, functions, procedures, connectionId: _connectionId, ...shared } = props
+  const { tables, views, materializedViews, functions, procedures, ...shared } = props
 
   return (
     <ScrollArea className="flex-1">
