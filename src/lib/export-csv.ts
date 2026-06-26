@@ -1,6 +1,11 @@
 import Papa from 'papaparse'
 import type { ColumnMetadata } from '@/components/sql-editor/hooks/useEditorTabs'
 
+function sanitizeCsvCell(value: unknown): unknown {
+  if (typeof value !== 'string') return value
+  return /^[\s]*[=+\-@\t\r]/.test(value) ? `'${value}` : value
+}
+
 export function exportToCsv(
   columns: Array<Pick<ColumnMetadata, 'name'>>,
   rows: Record<string, unknown>[],
@@ -9,7 +14,7 @@ export function exportToCsv(
   const columnNames = columns.map((col) => col.name)
   const csv = Papa.unparse({
     fields: columnNames,
-    data: rows.map((row) => columnNames.map((name) => row[name])),
+    data: rows.map((row) => columnNames.map((name) => sanitizeCsvCell(row[name]))),
   })
 
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })

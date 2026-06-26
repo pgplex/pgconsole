@@ -175,6 +175,9 @@ function AuditFilterBar({
   const sources = uniqueValues(entries, (entry) => entry.source)
   const hasFilters = Object.entries(filters).some(([key, value]) => value !== DEFAULT_FILTERS[key as keyof AuditFilters])
   const searchId = `audit-${scope}-search`
+  const actionId = `audit-${scope}-action`
+  const sourceId = `audit-${scope}-source`
+  const statusId = `audit-${scope}-status`
   const fromId = `audit-${scope}-from`
   const toId = `audit-${scope}-to`
 
@@ -192,12 +195,12 @@ function AuditFilterBar({
           />
         </div>
         <div className="space-y-1.5">
-          <Label>Action</Label>
+          <Label htmlFor={actionId}>Action</Label>
           <Select
             value={filters.action}
             onValueChange={(action) => onFiltersChange({ ...filters, action: action ?? 'all' })}
           >
-            <SelectTrigger>
+            <SelectTrigger id={actionId}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -209,12 +212,12 @@ function AuditFilterBar({
           </Select>
         </div>
         <div className="space-y-1.5">
-          <Label>Source</Label>
+          <Label htmlFor={sourceId}>Source</Label>
           <Select
             value={filters.source}
             onValueChange={(source) => onFiltersChange({ ...filters, source: source ?? 'all' })}
           >
-            <SelectTrigger>
+            <SelectTrigger id={sourceId}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -226,12 +229,12 @@ function AuditFilterBar({
           </Select>
         </div>
         <div className="space-y-1.5">
-          <Label>Status</Label>
+          <Label htmlFor={statusId}>Status</Label>
           <Select
             value={filters.status}
             onValueChange={(status) => onFiltersChange({ ...filters, status: status ?? 'all' })}
           >
-            <SelectTrigger>
+            <SelectTrigger id={statusId}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -437,7 +440,7 @@ export default function AuditLog({ connectionId }: AuditLogProps) {
       error={connQuery.error}
       emptyLabel="No audit log entries yet."
     >
-      {(entries) => <AuditEntriesView entries={entries} scope="connection" />}
+      {(entries) => <AuditEntriesView key={connectionId} entries={entries} scope="connection" />}
     </EntriesPanel>
   )
 
