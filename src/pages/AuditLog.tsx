@@ -156,7 +156,7 @@ export default function AuditLog({ connectionId }: AuditLogProps) {
                 <TableRow key={`${entry.timestamp}-${entry.action}-${entry.actor}-${idx}`}>
                   <TableCell className="text-gray-600">{new Date(entry.timestamp).toLocaleString()}</TableCell>
                   <TableCell>{entry.actor}</TableCell>
-                  <TableCell><ActionCell action={entry.action} /></TableCell>
+                  <TableCell><ActionCell action={entry.action} source={entry.source} /></TableCell>
                   <TableCell><StatusBadge success={entry.success} /></TableCell>
                   <TableCell>{entry.provider || '—'}</TableCell>
                   <TableCell className="font-mono text-xs">{entry.ip || '—'}</TableCell>

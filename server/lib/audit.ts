@@ -12,11 +12,13 @@ interface AuthLoginEvent extends BaseEvent {
   provider: string
   ip: string
   success: boolean
+  source: 'web'
   error?: string
 }
 
 interface AuthLogoutEvent extends BaseEvent {
   action: 'auth.logout'
+  source: 'web'
 }
 
 interface SQLExecuteEvent extends BaseEvent {
@@ -28,8 +30,8 @@ interface SQLExecuteEvent extends BaseEvent {
   duration_ms: number
   row_count?: number
   error?: string
-  /** Set to 'mcp' when the query originated from the MCP server */
-  source?: 'mcp'
+  /** Origin channel of the query: web app or MCP server */
+  source: 'web' | 'mcp'
   /** MCP tool name (only when source is 'mcp') */
   tool?: string
   /** Agent id that ran the query, when source is 'mcp' (present for both pure and delegated agents) */
@@ -43,6 +45,7 @@ interface DataExportEvent extends BaseEvent {
   sql: string
   row_count: number
   format: string
+  source: 'web'
 }
 
 export type AuditEvent = AuthLoginEvent | AuthLogoutEvent | SQLExecuteEvent | DataExportEvent
@@ -96,6 +99,7 @@ export function auditLogin(actor: string, provider: string, ip: string, success:
     provider,
     ip,
     success,
+    source: 'web',
   }
   if (error) event.error = error
   emit(event)
@@ -107,6 +111,7 @@ export function auditLogout(actor: string): void {
     ts: now(),
     action: 'auth.logout',
     actor,
+    source: 'web',
   })
 }
 
@@ -132,11 +137,11 @@ export function auditSQL(
     sql,
     success,
     duration_ms,
+    source: opts?.source ?? 'web',
   }
   if (row_count !== undefined) event.row_count = row_count
   if (error) event.error = error
   if (opts) {
-    event.source = opts.source
     event.tool = opts.tool
     event.agent = opts.agent
   }
@@ -161,6 +166,7 @@ export function auditExport(
     sql,
     row_count,
     format,
+    source: 'web',
   })
 }
 
