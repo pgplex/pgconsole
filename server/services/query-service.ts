@@ -1223,7 +1223,7 @@ export const queryServiceHandlers: ServiceImpl<typeof QueryService> = {
     requirePermission(user, req.connectionId, 'admin', 'view audit log');
     getConnectionDetails(req.connectionId);
 
-    const limit = req.limit > 0 ? Math.min(req.limit, 500) : 100;
+    const limit = req.limit > 0 ? Math.min(req.limit, 1000) : 100;
     const entries = listAuditEvents(req.connectionId, limit).map(toAuditLogEntry);
 
     return { entries };
@@ -1241,7 +1241,7 @@ export const queryServiceHandlers: ServiceImpl<typeof QueryService> = {
       throw new ConnectError("Permission denied: viewing the system audit log requires instance owner", Code.PermissionDenied);
     }
 
-    const limit = req.limit > 0 ? Math.min(req.limit, 500) : 100;
+    const limit = req.limit > 0 ? Math.min(req.limit, 1000) : 100;
     const entries = listSystemAuditEvents(limit).map(toAuditLogEntry);
 
     return { entries };
