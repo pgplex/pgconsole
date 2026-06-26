@@ -12,7 +12,7 @@ export function Faq({
   answer,
   ...props
 }: { question: ReactNode; answer: ReactNode } & ComponentProps<'div'>) {
-  let autoId = useId()
+  const autoId = useId()
   id = id || autoId
 
   return (

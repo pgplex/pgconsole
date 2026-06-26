@@ -1709,7 +1709,7 @@ function transformCreateFunction(raw: Record<string, unknown>, source: string): 
         if (defexpr) {
           // Try to extract the source text for the default expression
           // For now, we'll use a simplified approach
-          defaultVal = extractExprSource(defexpr, source)
+          defaultVal = extractExprSource(defexpr)
         }
 
         const fp: FunctionParameter = {
@@ -1890,7 +1890,7 @@ function extractNumericValue(node: Record<string, unknown>): number | null {
   return null
 }
 
-function extractExprSource(expr: unknown, _fullSource: string): string | null {
+function extractExprSource(expr: unknown): string | null {
   // Try to extract source text based on location info
   if (!expr || typeof expr !== 'object') return null
   const obj = expr as Record<string, unknown>

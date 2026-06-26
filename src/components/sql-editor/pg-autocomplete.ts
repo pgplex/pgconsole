@@ -506,7 +506,7 @@ function hasQualifierDot(completion: Completion): boolean {
  * Only keywords and dot-qualifiers retrigger — tables/columns do not,
  * since the user may want to type `;`, alias, or other non-space characters.
  */
-function wrapCompletionsForRetrigger(completions: Completion[], _section: SQLSection): Completion[] {
+function wrapCompletionsForRetrigger(completions: Completion[]): Completion[] {
   return completions.map((c) => {
     // Wrap keywords that are in the retrigger set
     if (c.type === 'keyword' && RETRIGGER_KEYWORDS.has(c.label)) {
@@ -665,7 +665,7 @@ async function pgCompletionSource(ctx: CompletionContext): Promise<CompletionRes
   let completions = filteredSuggestions.map(toCompletion)
 
   // Wrap keywords/tables that should retrigger autocomplete
-  completions = wrapCompletionsForRetrigger(completions, updatedResult.context.section)
+  completions = wrapCompletionsForRetrigger(completions)
 
   // Calculate the correct 'from' position for completion replacement
   // When completing after "table.", we only want to replace the part after the dot

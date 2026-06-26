@@ -89,6 +89,8 @@ export async function getProviders(): Promise<AuthProvider[]> {
       const data = await res.json()
       return data.providers || []
     }
-  } catch {}
+  } catch {
+    return []
+  }
   return []
 }

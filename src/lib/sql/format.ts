@@ -12,6 +12,7 @@ import type {
   ColumnDef,
   TableConstraint,
   Expr,
+  GroupingSet,
   FromClause,
   SortExpr,
   TargetExpr,
@@ -77,7 +78,7 @@ function formatStatement(stmt: Statement): string {
     case 'alter_table': return formatAlterTable(stmt)
     case 'create_function': return formatCreateFunction(stmt)
     case 'unknown': return stmt.source
-    // DDL statements - preserve original source (formatting not yet implemented)
+    // Statements without dedicated formatting support yet preserve original source.
     case 'drop':
     case 'create_view':
     case 'create_index':
@@ -92,14 +93,12 @@ function formatStatement(stmt: Statement): string {
     case 'grant':
     case 'revoke':
     case 'refresh_matview':
-    // Utility statements - preserve original source
     case 'explain':
     case 'copy':
     case 'set':
     case 'show':
     case 'transaction':
     case 'vacuum':
-    // Admin statements - preserve original source
     case 'create_role':
     case 'alter_role':
     case 'drop_role':
@@ -237,31 +236,32 @@ function formatFrom(from: FromClause): string {
   }
 }
 
-function formatGroupByItem(item: any): string {
-  // Check if it's a GroupingSet
-  if (item && typeof item === 'object' && 'kind' in item &&
-      (item.kind === 'rollup' || item.kind === 'cube' || item.kind === 'sets' || item.kind === 'empty')) {
-    const gs = item as import('./core').GroupingSet
+function isGroupingSet(item: Expr | GroupingSet): item is GroupingSet {
+  return item.kind === 'rollup' || item.kind === 'cube' || item.kind === 'sets' || item.kind === 'empty'
+}
 
-    if (gs.kind === 'empty') {
+function formatGroupByItem(item: Expr | GroupingSet): string {
+  // Check if it's a GroupingSet
+  if (isGroupingSet(item)) {
+    if (item.kind === 'empty') {
       return '()'
     }
 
-    if (gs.kind === 'rollup') {
-      if (gs.content.length === 0) return 'ROLLUP ()'
-      const content = gs.content.map(formatGroupByItem).join(', ')
+    if (item.kind === 'rollup') {
+      if (item.content.length === 0) return 'ROLLUP ()'
+      const content = item.content.map(formatGroupByItem).join(', ')
       return `ROLLUP (${content})`
     }
 
-    if (gs.kind === 'cube') {
-      if (gs.content.length === 0) return 'CUBE ()'
-      const content = gs.content.map(formatGroupByItem).join(', ')
+    if (item.kind === 'cube') {
+      if (item.content.length === 0) return 'CUBE ()'
+      const content = item.content.map(formatGroupByItem).join(', ')
       return `CUBE (${content})`
     }
 
-    if (gs.kind === 'sets') {
-      if (gs.content.length === 0) return 'GROUPING SETS ()'
-      const content = gs.content.map(item => {
+    if (item.kind === 'sets') {
+      if (item.content.length === 0) return 'GROUPING SETS ()'
+      const content = item.content.map(item => {
         // Each item in GROUPING SETS needs to be wrapped in parentheses
         // unless it's already a GroupingSet (empty, rollup, cube, or nested sets)
         const formatted = formatGroupByItem(item)
@@ -276,7 +276,7 @@ function formatGroupByItem(item: any): string {
   }
 
   // Otherwise it's a regular expression
-  return formatExpr(item)
+  return formatExpr(item as Expr)
 }
 
 function formatTableRef(t: TableRef): string {

@@ -211,7 +211,7 @@ async function buildSchemaContext(
     lines.push(`PostgreSQL ${version}`)
     lines.push('')
 
-    for (const [_key, table] of schemaMap) {
+    for (const table of schemaMap.values()) {
       // Table header
       lines.push(`${table.schema}.${table.table} (${table.objectType})`)
       if (table.comment) {
