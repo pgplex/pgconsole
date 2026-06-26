@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { queryClient, connectionClient, aiClient } from '../lib/connect-client';
+import { AUDIT_LOG_FETCH_LIMIT, LIVE_QUERY_REFETCH_INTERVAL_MS } from '../lib/constants';
 import type { ColumnMetadata } from '../components/sql-editor/hooks/useEditorTabs';
 
 // Query keys
@@ -309,7 +310,7 @@ export function useActiveProcesses(connectionId: string, enabled = true) {
       return response.sessions;
     },
     enabled: enabled && !!connectionId,
-    refetchInterval: 5000,
+    refetchInterval: LIVE_QUERY_REFETCH_INTERVAL_MS,
   });
 }
 
@@ -328,17 +329,15 @@ export function useTerminateProcess() {
   });
 }
 
-const AUDIT_LOG_LIMIT = 1000;
-
 export function useAuditLogEntries(connectionId: string, enabled = true) {
   return useQuery({
     queryKey: queryKeys.auditLog(connectionId),
     queryFn: async () => {
-      const response = await queryClient.getAuditLogEntries({ connectionId, limit: AUDIT_LOG_LIMIT });
+      const response = await queryClient.getAuditLogEntries({ connectionId, limit: AUDIT_LOG_FETCH_LIMIT });
       return response.entries;
     },
     enabled: enabled && !!connectionId,
-    refetchInterval: 5000,
+    refetchInterval: LIVE_QUERY_REFETCH_INTERVAL_MS,
   });
 }
 
@@ -348,11 +347,11 @@ export function useSystemAuditLogEntries(enabled = true) {
   return useQuery({
     queryKey: queryKeys.systemAuditLog(),
     queryFn: async () => {
-      const response = await queryClient.getSystemAuditLogEntries({ limit: AUDIT_LOG_LIMIT });
+      const response = await queryClient.getSystemAuditLogEntries({ limit: AUDIT_LOG_FETCH_LIMIT });
       return response.entries;
     },
     enabled,
-    refetchInterval: 5000,
+    refetchInterval: LIVE_QUERY_REFETCH_INTERVAL_MS,
   });
 }
 

@@ -17,17 +17,18 @@ import { getAgentPermissions, type Permission } from './lib/iam'
 import { detectRequiredPermissions } from './lib/sql-permissions'
 import { buildExecutableSql, formatExecutionError } from './lib/execute-sql'
 import { auditSQL } from './lib/audit'
+import { MCP_CATALOG_PAGE_SIZE, MCP_MAX_RESULT_ROWS } from '../src/lib/constants'
 
 declare const __APP_VERSION__: string
 
 export const MCP_PATH = '/mcp'
-const PAGE_SIZE = 100
+const PAGE_SIZE = MCP_CATALOG_PAGE_SIZE
 
 // Hard cap on rows returned by the execution tools, so a broad SELECT can't flood an agent's
 // context. The full result is fetched, then capped; a `truncated` flag tells the agent to narrow
 // (LIMIT/WHERE or a smaller maxRows). MCP only — the UI route is intentionally uncapped because it
 // needs the full result set for CSV export and inline editing.
-export const MAX_RESULT_ROWS = 1000
+export const MAX_RESULT_ROWS = MCP_MAX_RESULT_ROWS
 
 // A resolved MCP caller — identity + audit actor for one agent. Permission resolution
 // itself lives in iam.ts (getAgentPermissions), the single home for that decision.
