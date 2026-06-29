@@ -1,3 +1,4 @@
+import { HeroDemo } from '@/components/elements/hero-demo'
 import { InstallCommand } from '@/components/elements/install-command'
 import { Link } from '@/components/elements/link'
 import { Main } from '@/components/elements/main'
@@ -37,15 +38,7 @@ export default function Page() {
               <InstallCommand className="min-w-xs" snippet="docker run -p 9876:9876 pgplex/pgconsole" />
             </div>
           }
-          demo={
-            <img
-              src="/sql-editor-overview.webp"
-              alt="pgconsole SQL editor"
-              className="rounded-lg ring-1 ring-black/10"
-              width={2880}
-              height={1800}
-            />
-          }
+          demo={<HeroDemo />}
         />
 
         {/* Features */}
