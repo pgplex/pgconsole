@@ -22,11 +22,12 @@ export default function Page() {
         {/* Hero */}
         <HeroCenteredWithDemo
           id="hero"
-          headline="Minimal Postgres editor for speed and collaboration"
+          headline="Minimal Postgres editor for humans and agents"
           subheadline={
             <p>
-              A self-hosted PostgreSQL editor with built-in access control, audit logging, and AI assistance
-              — all from a single binary, and a TOML.
+              A self-hosted PostgreSQL editor built for speed and collaboration — with access control, audit
+              logging, AI assistance, and an MCP server that gives agents the same governed access as your team.
+              All from a single binary and a TOML.
             </p>
           }
           cta={
