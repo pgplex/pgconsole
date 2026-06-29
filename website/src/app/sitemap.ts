@@ -3,6 +3,9 @@ import { getPosts } from '@/lib/blog'
 
 const BASE_URL = 'https://www.pgconsole.com'
 
+// Render the sitemap at build time for the static export.
+export const dynamic = 'force-static'
+
 export default function sitemap(): MetadataRoute.Sitemap {
   const posts = getPosts()
 
