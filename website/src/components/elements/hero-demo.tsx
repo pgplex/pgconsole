@@ -46,7 +46,7 @@ function AgentDemo() {
         <TerminalIcon className="size-4 text-mist-500" />
         <span className="font-medium text-mist-950 dark:text-white">pgconsole MCP server</span>
         <span className="ml-auto flex items-center gap-1.5 text-mist-500">
-          <span className="size-1.5 rounded-full bg-[#0A64C8]" />
+          <span className="size-1.5 rounded-full bg-[#2f63f0]" />
           connected
         </span>
       </div>
