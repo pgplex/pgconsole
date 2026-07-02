@@ -1,6 +1,6 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Download, RotateCcw, ScrollText } from 'lucide-react'
+import { ArrowLeft, Download, ScrollText } from 'lucide-react'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
@@ -162,18 +162,15 @@ function AuditFilterBar({
   filters,
   onFiltersChange,
   filteredCount,
-  onExport,
 }: {
   scope: AuditScope
   entries: AuditLogEntry[]
   filters: AuditFilters
   onFiltersChange: (filters: AuditFilters) => void
   filteredCount: number
-  onExport: () => void
 }) {
   const actions = uniqueValues(entries, (entry) => entry.action)
   const sources = uniqueValues(entries, (entry) => entry.source)
-  const hasFilters = Object.entries(filters).some(([key, value]) => value !== DEFAULT_FILTERS[key as keyof AuditFilters])
   const searchId = `audit-${scope}-search`
   const actionId = `audit-${scope}-action`
   const sourceId = `audit-${scope}-source`
@@ -183,7 +180,7 @@ function AuditFilterBar({
 
   return (
     <div className="mb-4 space-y-3">
-      <div className="grid gap-3 md:grid-cols-[minmax(220px,1fr)_160px_140px_140px_140px_140px_auto_auto]">
+      <div className="grid gap-3 md:grid-cols-[minmax(220px,1fr)_160px_140px_140px_140px_140px]">
         <div className="space-y-1.5">
           <Label htmlFor={searchId}>Search</Label>
           <Input
@@ -262,23 +259,6 @@ function AuditFilterBar({
             onChange={(event) => onFiltersChange({ ...filters, toDate: event.target.value })}
           />
         </div>
-        <div className="flex items-end">
-          <Button
-            variant="outline"
-            onClick={() => onFiltersChange(DEFAULT_FILTERS)}
-            disabled={!hasFilters}
-            aria-label="Reset audit filters"
-          >
-            <RotateCcw />
-            Reset
-          </Button>
-        </div>
-        <div className="flex items-end">
-          <Button onClick={onExport} disabled={filteredCount === 0}>
-            <Download />
-            Export CSV
-          </Button>
-        </div>
       </div>
       <p className="text-sm text-gray-500">
         Showing {filteredCount} of {entries.length} recent entries
@@ -287,19 +267,27 @@ function AuditFilterBar({
   )
 }
 
-function AuditEntriesView({ entries, scope }: { entries: AuditLogEntry[]; scope: AuditScope }) {
-  const [filters, setFilters] = useState(DEFAULT_FILTERS)
-  const filteredEntries = useMemo(() => filterEntries(entries, filters), [entries, filters])
-
+function AuditEntriesView({
+  entries,
+  scope,
+  filters,
+  onFiltersChange,
+  filteredEntries,
+}: {
+  entries: AuditLogEntry[]
+  scope: AuditScope
+  filters: AuditFilters
+  onFiltersChange: (filters: AuditFilters) => void
+  filteredEntries: AuditLogEntry[]
+}) {
   return (
     <>
       <AuditFilterBar
         scope={scope}
         entries={entries}
         filters={filters}
-        onFiltersChange={setFilters}
+        onFiltersChange={onFiltersChange}
         filteredCount={filteredEntries.length}
-        onExport={() => exportAuditEntries(filteredEntries, scope)}
       />
       {filteredEntries.length === 0 ? (
         <EmptyState label="No audit log entries match these filters." />
@@ -421,6 +409,24 @@ export default function AuditLog({ connectionId }: AuditLogProps) {
   // System tab is instance-owner only; the query is owner-gated server-side too.
   const sysQuery = useSystemAuditLogEntries(isOwner)
 
+  // Filters live here (not per-tab) so the shared Export button on the tab bar can
+  // export whichever tab is active. Switching connections resets the connection filters,
+  // matching the previous per-connection remount behaviour.
+  const [activeTab, setActiveTab] = useState<AuditScope>('connection')
+  const [connFilters, setConnFilters] = useState(DEFAULT_FILTERS)
+  const [sysFilters, setSysFilters] = useState(DEFAULT_FILTERS)
+  useEffect(() => setConnFilters(DEFAULT_FILTERS), [connectionId])
+
+  const connFiltered = useMemo(
+    () => filterEntries(connQuery.data ?? [], connFilters),
+    [connQuery.data, connFilters],
+  )
+  const sysFiltered = useMemo(
+    () => filterEntries(sysQuery.data ?? [], sysFilters),
+    [sysQuery.data, sysFilters],
+  )
+  const activeFiltered = activeTab === 'connection' ? connFiltered : sysFiltered
+
   // Connection tab: resolve the connections query (loading/error/empty) and the per-connection
   // admin gate before showing entries — otherwise admins briefly see the denied state on load.
   const connectionContent = error ? (
@@ -440,7 +446,15 @@ export default function AuditLog({ connectionId }: AuditLogProps) {
       error={connQuery.error}
       emptyLabel="No audit log entries yet."
     >
-      {(entries) => <AuditEntriesView key={connectionId} entries={entries} scope="connection" />}
+      {(entries) => (
+        <AuditEntriesView
+          entries={entries}
+          scope="connection"
+          filters={connFilters}
+          onFiltersChange={setConnFilters}
+          filteredEntries={connFiltered}
+        />
+      )}
     </EntriesPanel>
   )
 
@@ -452,20 +466,45 @@ export default function AuditLog({ connectionId }: AuditLogProps) {
       error={sysQuery.error}
       emptyLabel="No system audit log entries yet."
     >
-      {(entries) => <AuditEntriesView entries={entries} scope="system" />}
+      {(entries) => (
+        <AuditEntriesView
+          entries={entries}
+          scope="system"
+          filters={sysFilters}
+          onFiltersChange={setSysFilters}
+          filteredEntries={sysFiltered}
+        />
+      )}
     </EntriesPanel>
   )
 
   return (
     <div className="flex-1 bg-white text-gray-900 overflow-auto">
       <div className="p-8">
+        <Button
+          variant="ghost"
+          onClick={() => navigate(`/?connectionId=${connectionId}`)}
+          className="-ml-2 mb-4"
+        >
+          <ArrowLeft />
+          Back to editor
+        </Button>
         <h1 className="text-3xl font-bold mb-8">Audit Log</h1>
 
-        <Tabs defaultValue="connection">
-          <TabsList className="mb-6">
-            <TabsTrigger value="connection">Connection</TabsTrigger>
-            {isOwner && <TabsTrigger value="system">System</TabsTrigger>}
-          </TabsList>
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as AuditScope)}>
+          <div className="mb-6 flex items-center justify-between">
+            <TabsList>
+              <TabsTrigger value="connection">Connection</TabsTrigger>
+              {isOwner && <TabsTrigger value="system">System</TabsTrigger>}
+            </TabsList>
+            <Button
+              onClick={() => exportAuditEntries(activeFiltered, activeTab)}
+              disabled={activeFiltered.length === 0}
+            >
+              <Download />
+              Export CSV
+            </Button>
+          </div>
 
           <TabsContent value="connection">
             {/* Connection selector stays outside the admin gate so a user without admin on the
