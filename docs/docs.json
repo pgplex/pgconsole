@@ -6,9 +6,9 @@
   },
   "name": "pgconsole",
   "colors": {
-    "primary": "#0A64C8",
-    "light": "#5A94D8",
-    "dark": "#063D78"
+    "primary": "#2f63f0",
+    "light": "#8fb4ff",
+    "dark": "#1e44c8"
   },
   "favicon": "/favicon.svg",
   "navigation": {
