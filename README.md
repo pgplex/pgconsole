@@ -1,16 +1,7 @@
 > [!NOTE]
-> pgplex: Modern Developer Stack for Postgres - **pgconsole** · [pgtui](https://github.com/pgplex/pgtui) · [pgschema](https://github.com/pgplex/pgschema) · [pgparser](https://github.com/pgplex/pgparser)
->
 > Brought to you by [Bytebase](https://www.bytebase.com/), open-source database DevSecOps platform.
 
-<p align="center">
-  <a href="https://www.pgconsole.com">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/pgplex/pgconsole/main/src/assets/logo-dark-full.svg" />
-      <img src="https://raw.githubusercontent.com/pgplex/pgconsole/main/src/assets/logo-light-full.svg" alt="pgconsole" />
-    </picture>
-  </a>
-</p>
+![](https://raw.githubusercontent.com/pgplex/website/refs/heads/main/public/banner-pgconsole.png)
 
 <table align="center"><tr><td>
   <img src="https://raw.githubusercontent.com/pgplex/pgconsole/main/website/public/sql-editor-overview.webp" alt="pgconsole SQL editor" />
