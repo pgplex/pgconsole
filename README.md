@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/pgplex-pgconsole-badge.png)](https://mseep.ai/app/pgplex-pgconsole)
+
 > [!NOTE]
 > pgplex: The Postgres Toolchain for Humans and Agents - **pgconsole** · [pgschema](https://github.com/pgplex/pgschema) · [pgtui](https://github.com/pgplex/pgtui) · [pgparser](https://github.com/pgplex/pgparser)
 > 
