@@ -8,7 +8,7 @@ import { useExecuteSQL } from '../../hooks/useQuery'
 import { useSchemaStoreSync } from '../../hooks/useSchemaStoreSync'
 import { schemaStore } from '@/lib/schema-store'
 import { queryClient as rpcClient } from '@/lib/connect-client'
-import { generateSelect, generateInsert, generateUpdate, generateDelete, generateCreateTable, generateAlterAddColumn } from '@/lib/sql/generate'
+import { generateObjectSelect, generateSelect, generateInsert, generateUpdate, generateDelete, generateCreateTable, generateAlterAddColumn } from '@/lib/sql/generate'
 import { toastManager } from '../ui/toast'
 import type { ObjectType } from './ObjectTree'
 import type { SelectedObject } from '@/hooks/useEditorNavigation'
@@ -177,7 +177,7 @@ export function SQLEditorLayout({
     }
 
     // For tables/views, run SELECT query
-    const query = `SELECT * FROM ${schema}.${objectName} LIMIT 100;`
+    const query = generateObjectSelect(schema, objectName)
 
     // Check if a tab with the same SQL statement already exists
     const existingTab = editorTabs.tabs.find(
