@@ -19,6 +19,12 @@ export async function generateSelect(table: string): Promise<string> {
   return formatSql(sql)
 }
 
+/** Generate a preview query from raw PostgreSQL object names. */
+export function generateObjectSelect(schema: string, name: string): string {
+  const quote = (identifier: string) => `"${identifier.replace(/"/g, '""')}"`
+  return `SELECT * FROM ${quote(schema)}.${quote(name)} LIMIT 100;`
+}
+
 /**
  * Generate an INSERT statement with column placeholders.
  */

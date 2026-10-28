@@ -6,6 +6,7 @@ import { Button } from '../../ui/button'
 import { ScrollArea } from '../../ui/scroll-area'
 import { Tabs, TabsList, TabsTab, TabsPanel } from '../../ui/tabs'
 import { InfoItem, formatBytes, formatRowCount, getKindLabel, ColumnsTable, IndexesTable, ConstraintsTable, TriggersTable, PoliciesTable, GrantsTable } from './shared'
+import { generateObjectSelect } from '@/lib/sql/generate'
 
 interface TableSchemaContentProps {
   connectionId: string
@@ -37,7 +38,7 @@ export function TableSchemaContent({ connectionId, schema, table, onNewQuery }: 
   const { data: grants, isLoading: grantsLoading } = useGrants(connectionId, schema, table, visitedTabs.has('grants'))
 
   const handleNewQuery = () => {
-    onNewQuery?.(`SELECT * FROM "${schema}"."${table}" LIMIT 100;`)
+    onNewQuery?.(generateObjectSelect(schema, table))
   }
 
   // Build ER diagram showing table structure and FK relationships

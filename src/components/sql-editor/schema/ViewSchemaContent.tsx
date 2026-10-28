@@ -3,6 +3,7 @@ import { Badge } from '../../ui/badge'
 import { Button } from '../../ui/button'
 import { ScrollArea } from '../../ui/scroll-area'
 import { InfoItem, formatBytes, formatRowCount, getKindLabel, SQLDefinition, ColumnsTable } from './shared'
+import { generateObjectSelect } from '@/lib/sql/generate'
 
 interface ViewSchemaContentProps {
   connectionId: string
@@ -17,7 +18,7 @@ export function ViewSchemaContent({ connectionId, schema, view, objectType, onNe
   const { data: tableInfo, isLoading: tableInfoLoading } = useTableInfo(connectionId, schema, view)
 
   const handleNewQuery = () => {
-    onNewQuery?.(`SELECT * FROM "${schema}"."${view}" LIMIT 100;`)
+    onNewQuery?.(generateObjectSelect(schema, view))
   }
 
   const isMaterializedView = objectType === 'materialized_view'

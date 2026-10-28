@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  generateObjectSelect,
   generateSelect,
   generateInsert,
   generateUpdate,
@@ -16,6 +17,18 @@ FROM
   users
 LIMIT
   100;`)
+    })
+  })
+
+  describe('generateObjectSelect', () => {
+    it.each([
+      ['public', 'users', 'SELECT * FROM "public"."users" LIMIT 100;'],
+      ['ExampleSchema', 'ExampleTable_V01', 'SELECT * FROM "ExampleSchema"."ExampleTable_V01" LIMIT 100;'],
+      ['select', 'order', 'SELECT * FROM "select"."order" LIMIT 100;'],
+      ['schema.with.dots', 'table name', 'SELECT * FROM "schema.with.dots"."table name" LIMIT 100;'],
+      ['a"b', 'c"d', 'SELECT * FROM "a""b"."c""d" LIMIT 100;'],
+    ])('quotes schema %s and object %s', (schema, name, expected) => {
+      expect(generateObjectSelect(schema, name)).toBe(expected)
     })
   })
 
