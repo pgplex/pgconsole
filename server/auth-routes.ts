@@ -6,6 +6,7 @@ import { auditLogin, auditLogout } from './lib/audit'
 import { registerGoogleOAuth } from './lib/oauth/google'
 import { registerKeycloakOAuth } from './lib/oauth/keycloak'
 import { registerOktaOAuth } from './lib/oauth/okta'
+import { registerOidcOAuth } from './lib/oauth/oidc'
 
 const router = Router()
 
@@ -118,6 +119,7 @@ const oauthOpts = {
 registerGoogleOAuth(router, oauthOpts)
 registerKeycloakOAuth(router, oauthOpts)
 registerOktaOAuth(router, oauthOpts)
+registerOidcOAuth(router, oauthOpts)
 
 // GET /api/auth/providers
 router.get('/providers', (_req: Request, res: Response) => {
@@ -126,10 +128,10 @@ router.get('/providers', (_req: Request, res: Response) => {
   }
 
   const config = getAuthConfig()
-  const providers: Array<{ name: string }> = []
+  const providers: Array<{ name: string; label?: string }> = []
   if (getUsers().some(u => u.password)) providers.push({ name: 'basic' })
   for (const provider of config?.providers ?? []) {
-    providers.push({ name: provider.type })
+    providers.push(provider.name ? { name: provider.type, label: provider.name } : { name: provider.type })
   }
 
   return res.json({ providers })

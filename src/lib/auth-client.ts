@@ -80,6 +80,7 @@ export async function signOut() {
 
 export interface AuthProvider {
   name: string
+  label?: string // display name for the sign-in button (oidc only)
 }
 
 export async function getProviders(): Promise<AuthProvider[]> {

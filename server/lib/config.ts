@@ -34,10 +34,12 @@ export interface UserConfig {
 }
 
 export interface AuthProviderConfig {
-  type: 'google' | 'keycloak' | 'okta'
+  type: 'google' | 'keycloak' | 'okta' | 'oidc'
   client_id: string
   client_secret: string
-  issuer_url?: string  // required for keycloak and okta
+  issuer_url?: string  // required for keycloak, okta and oidc
+  name?: string  // display name on the sign-in button (oidc only)
+  token_auth_method?: 'client_secret_basic' | 'client_secret_post'  // oidc only; inferred from discovery when omitted
 }
 
 export interface AuthConfig {
@@ -511,7 +513,7 @@ export async function loadConfigFromString(content: string): Promise<void> {
     // Parse [[auth.providers]] array
     const providers: AuthProviderConfig[] = []
     const rawProviders = a.providers as unknown[] | undefined
-    const validProviderTypes = ['google', 'keycloak', 'okta']
+    const validProviderTypes = ['google', 'keycloak', 'okta', 'oidc']
     if (rawProviders && Array.isArray(rawProviders)) {
       for (const entry of rawProviders) {
         const raw = entry as Record<string, unknown>
@@ -529,9 +531,13 @@ export async function loadConfigFromString(content: string): Promise<void> {
           throw new Error(`${raw.type} provider missing required field: client_secret`)
         }
 
-        // issuer_url required for keycloak and okta
-        if ((raw.type === 'keycloak' || raw.type === 'okta') && (!raw.issuer_url || typeof raw.issuer_url !== 'string')) {
+        // issuer_url required for keycloak, okta and oidc
+        if ((raw.type === 'keycloak' || raw.type === 'okta' || raw.type === 'oidc') && (!raw.issuer_url || typeof raw.issuer_url !== 'string')) {
           throw new Error(`${raw.type} provider missing required field: issuer_url`)
+        }
+
+        if (raw.token_auth_method !== undefined && raw.token_auth_method !== 'client_secret_basic' && raw.token_auth_method !== 'client_secret_post') {
+          throw new Error(`${raw.type} provider has invalid token_auth_method: ${raw.token_auth_method}. Must be one of: client_secret_basic, client_secret_post`)
         }
 
         providers.push({
@@ -539,6 +545,8 @@ export async function loadConfigFromString(content: string): Promise<void> {
           client_id: raw.client_id,
           client_secret: raw.client_secret,
           issuer_url: typeof raw.issuer_url === 'string' ? raw.issuer_url.replace(/\/+$/, '') : undefined,
+          name: typeof raw.name === 'string' ? raw.name : undefined,
+          token_auth_method: raw.token_auth_method as AuthProviderConfig['token_auth_method'],
         })
       }
     }

@@ -11,6 +11,7 @@ const oauthProviders: Record<string, { icon: ReactNode; label: string; path: str
   google: { icon: <GoogleIcon />, label: 'Continue with Google', path: '/api/auth/google' },
   keycloak: { icon: <KeyRound size={20} />, label: 'Continue with Keycloak', path: '/api/auth/keycloak' },
   okta: { icon: <OktaIcon />, label: 'Continue with Okta', path: '/api/auth/okta' },
+  oidc: { icon: <KeyRound size={20} />, label: 'Continue with SSO', path: '/api/auth/oidc' },
 };
 
 interface AuthFormProps {
@@ -46,7 +47,11 @@ export default function AuthForm({ onSuccess }: AuthFormProps) {
   const hasBasic = providers.some((p) => p.name === 'basic');
   const oauthEntries = providers
     .filter((p) => p.name !== 'basic' && p.name in oauthProviders)
-    .map((p) => ({ key: p.name, ...oauthProviders[p.name] }));
+    .map((p) => ({
+      key: p.name,
+      ...oauthProviders[p.name],
+      ...(p.label ? { label: `Continue with ${p.label}` } : {}),
+    }));
   const hasOAuth = oauthEntries.length > 0;
 
   if (providers.length === 0) {
