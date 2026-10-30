@@ -1,0 +1,86 @@
+---
+title: OIDC
+---
+
+Allow users to sign in with any OpenID Connect provider, such as Authentik, Auth0, Authelia, Zitadel, or VoidAuth.
+
+Use this when your identity provider does not have a dedicated page. For Google, Okta, and Keycloak, use their dedicated provider types instead.
+
+## Prerequisites
+
+- An OpenID Connect provider that supports [discovery](https://openid.net/specs/openid-connect-discovery-1_0.html) (publishes `/.well-known/openid-configuration`)
+- Admin access to create a client (application)
+- [external_url](/configuration/config#general)
+
+## Setup
+
+### 1. Create a Client in Your Provider
+
+The exact steps vary by provider. Create a confidential OAuth 2.0 / OpenID Connect client with these settings:
+
+- **Grant type**: Authorization Code
+- **Client authentication**: enabled (client secret)
+- **Redirect URI**:
+  ```
+  <<external_url>>/api/auth/oidc/callback
+  ```
+- **Scopes**: `openid`, `email`, `profile`
+
+pgconsole requires an `email` claim. Make sure the client is allowed to release the user's email.
+
+### 2. Get Client Credentials
+
+Copy the **Client ID** and **Client Secret** from the client you created.
+
+### 3. Get Issuer URL
+
+The issuer URL is the base URL your provider publishes its discovery document under. pgconsole fetches `<<issuer_url>>/.well-known/openid-configuration` to find the authorization, token, and userinfo endpoints.
+
+| Provider | Issuer URL pattern |
+|----------|--------------------|
+| Authentik | `https://auth.example.com/application/o/pgconsole/` |
+| Auth0 | `https://your-tenant.us.auth0.com` |
+| Authelia | `https://auth.example.com` |
+| Zitadel | `https://your-org.zitadel.cloud` |
+
+To verify, open the issuer URL with `/.well-known/openid-configuration` appended in a browser. It should return a JSON document whose `issuer` field matches the URL you configured.
+
+### 4. Configure pgconsole
+
+Add the OIDC provider to your `pgconsole.toml`:
+
+```toml pgconsole.toml
+[general]
+external_url = "https://pgconsole.example.com"
+
+[auth]
+# openssl rand -hex 32
+jwt_secret = "your-secret-key-at-least-32-characters-long"
+signin_expiry = "7d"
+
+[[auth.providers]]
+type = "oidc"
+name = "Authentik"  # optional, shown on the sign-in button
+client_id = "pgconsole"
+client_secret = "your-client-secret"
+issuer_url = "https://auth.example.com/application/o/pgconsole/"
+
+# The email from your provider is used as the user identifier in groups and IAM rules
+[[groups]]
+id = "dev-team"
+name = "Development Team"
+members = ["alice@example.com", "bob@example.com"]
+
+[[iam]]
+connection = "production"
+permissions = ["read"]
+members = ["user:carol@example.com", "group:dev-team"]
+```
+
+See [OAuth Providers](/configuration/config#oauth-providers) in the configuration reference for all provider fields.
+
+Only one `oidc` provider can be configured. To offer several identity providers side by side, combine `oidc` with the dedicated `google`, `okta`, or `keycloak` types.
+
+### 5. Restart pgconsole
+
+Restart the application for changes to take effect. A "Continue with Authentik" button (or "Continue with SSO" if `name` is omitted) will appear on the login page.

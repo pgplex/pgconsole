@@ -42,7 +42,8 @@
             "pages": [
               "authentication/google",
               "authentication/okta",
-              "authentication/keycloak"
+              "authentication/keycloak",
+              "authentication/oidc"
             ]
           }
         ]

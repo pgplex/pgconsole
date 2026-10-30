@@ -5,14 +5,14 @@ import { getAuthConfig, getUserByEmail } from './config'
 export interface TokenPayload extends JWTPayload {
   sub: string // email
   name?: string // display name (only if different from sub)
-  idp?: 'google' | 'keycloak' | 'okta' // identity provider (omitted for basic auth)
+  idp?: 'google' | 'keycloak' | 'okta' | 'oidc' // identity provider (omitted for basic auth)
   avatar?: string // avatar URL (Google profile picture)
 }
 
 export interface User {
   email: string
   name: string
-  idp?: 'google' | 'keycloak' | 'okta' // omitted for basic auth
+  idp?: 'google' | 'keycloak' | 'okta' | 'oidc' // omitted for basic auth
   avatar?: string // avatar URL (Google profile picture)
 }
 
