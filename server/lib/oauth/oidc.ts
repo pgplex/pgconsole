@@ -8,6 +8,8 @@ interface OidcEndpoints {
   authorization_endpoint: string
   token_endpoint: string
   userinfo_endpoint: string
+  // Send client credentials via HTTP Basic (RFC 6749 default) instead of the form body
+  token_auth_basic: boolean
 }
 
 let cachedEndpoints: OidcEndpoints | undefined
@@ -24,10 +26,13 @@ async function getEndpoints(issuerUrl: string): Promise<OidcEndpoints> {
   if (!doc.authorization_endpoint || !doc.token_endpoint || !doc.userinfo_endpoint) {
     throw new Error('OIDC discovery document missing required endpoints')
   }
+  // client_secret_basic is the spec default when the provider doesn't advertise its methods
+  const authMethods: unknown = doc.token_endpoint_auth_methods_supported
   cachedEndpoints = {
     authorization_endpoint: doc.authorization_endpoint,
     token_endpoint: doc.token_endpoint,
     userinfo_endpoint: doc.userinfo_endpoint,
+    token_auth_basic: !Array.isArray(authMethods) || authMethods.includes('client_secret_basic'),
   }
   return cachedEndpoints
 }
@@ -92,16 +97,23 @@ export function registerOidcOAuth(router: Router, opts: OAuthOpts): void {
     try {
       const endpoints = await getEndpoints(oidc.issuer_url!)
 
+      const tokenBody = new URLSearchParams({
+        code,
+        redirect_uri: `${externalUrl}/api/auth/oidc/callback`,
+        grant_type: 'authorization_code',
+      })
+      const tokenHeaders: Record<string, string> = { 'Content-Type': 'application/x-www-form-urlencoded' }
+      if (endpoints.token_auth_basic) {
+        const credentials = `${encodeURIComponent(oidc.client_id)}:${encodeURIComponent(oidc.client_secret)}`
+        tokenHeaders.Authorization = `Basic ${Buffer.from(credentials).toString('base64')}`
+      } else {
+        tokenBody.set('client_id', oidc.client_id)
+        tokenBody.set('client_secret', oidc.client_secret)
+      }
       const tokenRes = await fetch(endpoints.token_endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          code,
-          client_id: oidc.client_id,
-          client_secret: oidc.client_secret,
-          redirect_uri: `${externalUrl}/api/auth/oidc/callback`,
-          grant_type: 'authorization_code',
-        }),
+        headers: tokenHeaders,
+        body: tokenBody,
       })
       if (!tokenRes.ok) {
         return res.redirect(`${externalUrl}/signin?error=token_failed`)
@@ -120,6 +132,9 @@ export function registerOidcOAuth(router: Router, opts: OAuthOpts): void {
       // Require email as the identity
       if (!userInfo.email) {
         return res.redirect(`${externalUrl}/signin?error=no_email`)
+      }
+      if (userInfo.email_verified === false) {
+        return res.redirect(`${externalUrl}/signin?error=email_not_verified`)
       }
 
       // Check user is in [[users]] list

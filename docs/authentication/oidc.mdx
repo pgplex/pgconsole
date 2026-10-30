@@ -65,7 +65,17 @@ client_id = "pgconsole"
 client_secret = "your-client-secret"
 issuer_url = "https://auth.example.com/application/o/pgconsole/"
 
-# The email from your provider is used as the user identifier in groups and IAM rules
+# Allow each user to sign in. Emails must match those returned by your provider.
+[[users]]
+email = "alice@example.com"
+
+[[users]]
+email = "bob@example.com"
+
+[[users]]
+email = "carol@example.com"
+
+# Groups and IAM rules grant access; they do not create users.
 [[groups]]
 id = "dev-team"
 name = "Development Team"
