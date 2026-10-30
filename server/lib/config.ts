@@ -39,6 +39,7 @@ export interface AuthProviderConfig {
   client_secret: string
   issuer_url?: string  // required for keycloak, okta and oidc
   name?: string  // display name on the sign-in button (oidc only)
+  token_auth_method?: 'client_secret_basic' | 'client_secret_post'  // oidc only; inferred from discovery when omitted
 }
 
 export interface AuthConfig {
@@ -535,12 +536,17 @@ export async function loadConfigFromString(content: string): Promise<void> {
           throw new Error(`${raw.type} provider missing required field: issuer_url`)
         }
 
+        if (raw.token_auth_method !== undefined && raw.token_auth_method !== 'client_secret_basic' && raw.token_auth_method !== 'client_secret_post') {
+          throw new Error(`${raw.type} provider has invalid token_auth_method: ${raw.token_auth_method}. Must be one of: client_secret_basic, client_secret_post`)
+        }
+
         providers.push({
           type: raw.type as AuthProviderConfig['type'],
           client_id: raw.client_id,
           client_secret: raw.client_secret,
           issuer_url: typeof raw.issuer_url === 'string' ? raw.issuer_url.replace(/\/+$/, '') : undefined,
           name: typeof raw.name === 'string' ? raw.name : undefined,
+          token_auth_method: raw.token_auth_method as AuthProviderConfig['token_auth_method'],
         })
       }
     }

@@ -103,7 +103,11 @@ export function registerOidcOAuth(router: Router, opts: OAuthOpts): void {
         grant_type: 'authorization_code',
       })
       const tokenHeaders: Record<string, string> = { 'Content-Type': 'application/x-www-form-urlencoded' }
-      if (endpoints.token_auth_basic) {
+      // Explicit config wins over the method inferred from discovery
+      const useBasic = oidc.token_auth_method
+        ? oidc.token_auth_method === 'client_secret_basic'
+        : endpoints.token_auth_basic
+      if (useBasic) {
         const credentials = `${encodeURIComponent(oidc.client_id)}:${encodeURIComponent(oidc.client_secret)}`
         tokenHeaders.Authorization = `Basic ${Buffer.from(credentials).toString('base64')}`
       } else {

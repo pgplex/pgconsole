@@ -89,6 +89,17 @@ members = ["user:carol@example.com", "group:dev-team"]
 
 See [OAuth Providers](/configuration/config#oauth-providers) in the configuration reference for all provider fields.
 
+pgconsole authenticates to the token endpoint with HTTP Basic (`client_secret_basic`) when your provider advertises it, and falls back to form-body credentials (`client_secret_post`) otherwise. If your client is registered for a specific method, set `token_auth_method` explicitly:
+
+```toml pgconsole.toml
+[[auth.providers]]
+type = "oidc"
+client_id = "pgconsole"
+client_secret = "your-client-secret"
+issuer_url = "https://auth.example.com"
+token_auth_method = "client_secret_post"
+```
+
 Only one `oidc` provider can be configured. To offer several identity providers side by side, combine `oidc` with the dedicated `google`, `okta`, or `keycloak` types.
 
 ### 5. Restart pgconsole
