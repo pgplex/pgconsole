@@ -57,14 +57,14 @@ export function registerOidcOAuth(router: Router, opts: OAuthOpts): void {
     res.cookie(opts.stateCookie, state, opts.stateCookieOptions)
 
     const externalUrl = getExternalUrl()!
-    const params = new URLSearchParams({
-      client_id: oidc.client_id,
-      redirect_uri: `${externalUrl}/api/auth/oidc/callback`,
-      response_type: 'code',
-      scope: 'openid email profile',
-      state,
-    })
-    return res.redirect(`${endpoints.authorization_endpoint}?${params}`)
+    // Merge into any query string the discovered endpoint already carries
+    const authUrl = new URL(endpoints.authorization_endpoint)
+    authUrl.searchParams.set('client_id', oidc.client_id)
+    authUrl.searchParams.set('redirect_uri', `${externalUrl}/api/auth/oidc/callback`)
+    authUrl.searchParams.set('response_type', 'code')
+    authUrl.searchParams.set('scope', 'openid email profile')
+    authUrl.searchParams.set('state', state)
+    return res.redirect(authUrl.toString())
   })
 
   // GET /api/auth/oidc/callback
